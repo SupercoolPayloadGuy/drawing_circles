@@ -19,14 +19,15 @@ This repository contains a working animated construction of circle geometry. The
 ### `main.py`
 The main application:
 - Runs a pygame intro screen with level selection.
-- Supports levels 1 through 6.
+- Supports levels 1 through 99.
 - Animates a base circle, inner circles, and additional rings.
 - Automatically expands the construction ring-by-ring.
 
 **Controls**:
 - `ENTER` to start after choosing a level
-- `UP` / `DOWN` / mouse wheel to change the level
-- `B` or space to toggle dark/light theme
+- `UP` / `DOWN` / `LEFT` / `RIGHT` / `W` / `S` to change the level
+- `B` to toggle dark/light theme
+- `P` to pause/resume animation
 - mouse wheel to zoom in/out during the animation
 
 **Run**: `python main.py`
@@ -34,11 +35,17 @@ The main application:
 ### `examples/circle_algorithm.py`
 A standalone pygame example that prompts for a level in the console and animates the construction.
 
+**Run**: `python examples/circle_algorithm.py`
+
 ### `examples/simple_circle.py`
-A turtle-based static version in `examples/` for quick geometry exploration.
+A turtle-based static version for quick geometry exploration.
+
+**Run**: `python examples/simple_circle.py`
 
 ### `examples/double_circle.py`
-A second pygame example in `examples/` showcasing the same circle construction logic with an alternate script layout.
+A second pygame example showcasing the same circle-construction logic with a different script layout.
+
+**Run**: `python examples/double_circle.py`
 
 ## Core Modules
 
@@ -79,21 +86,19 @@ python main.py
 
 **Done:**
 - Animated circle construction in pygame
-- Intro level selection screen with mouse/keyboard controls
-- Recursive ring expansion for levels 1+ up to 6
+- Intro level selection screen with mouse and keyboard controls
+- Recursive ring expansion for levels 1 through 99
 - Auto-zoom to keep new circles visible
 - Theme toggle and zoom controls
+- Pause/play control and restart button
+- Depth-based color and opacity for circle visuals
 - Point fade-in animation and easing curves
 - Smoother animation timing and improved drawing order
 
 ## TODO
 
-- [ ] Add a pause/play control for the main animation
-- [ ] Add a reset/restart button after the animation finishes
-- [ ] Improve level visuals with depth-based color or opacity
-- [ ] Add direct keyboard controls for level selection during intro
-- [ ] Support more than 6 levels with smarter duration scaling
-- [ ] Write a small `README` screenshot or sample output image
+- [ ] Refine duration scaling for very high levels
+- [ ] Add a screenshot or sample output image to the README
 
 ## Future Enhancements
 
