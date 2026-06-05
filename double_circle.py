@@ -12,10 +12,10 @@ HEIGHT = 1200
 
 BASE_RADIUS = 140
 
-# Animation speed: seconds for each circle to be drawn
-DRAW_DURATION = 0.28   # per circle (uniform for all stages)
-PAUSE_BETWEEN = 0.08   # gap between circles in the same stage
-STAGE_PAUSE   = 0.30   # gap between stages
+DRAW_DURATION  = 0.28   # seconds per circle (uniform)
+PAUSE_BETWEEN  = 0.08
+STAGE_PAUSE    = 0.30
+POINT_FADE_DUR = 0.40   # seconds for a point to fade in
 
 # ==================================================
 # THEME
@@ -39,7 +39,7 @@ LIGHT_THEME = {
     "label":      "LIGHT",
 }
 
-theme = DARK_THEME   # start dark
+theme = DARK_THEME
 
 # ==================================================
 # PYGAME INIT
@@ -48,7 +48,7 @@ theme = DARK_THEME   # start dark
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Circle Construction  •  B / Space = toggle theme")
-font = pygame.font.SysFont("monospace", 16)
+font   = pygame.font.SysFont("monospace", 16)
 
 CENTER = (WIDTH // 2, HEIGHT // 2)
 clock  = pygame.time.Clock()
@@ -58,27 +58,53 @@ clock  = pygame.time.Clock()
 # ==================================================
 
 done_circles = []   # list of (center, radius)
-done_points  = []   # list of (x, y)
+# points stored as (x, y, alpha 0-255)
+done_points  = []
 
-# Currently animating circle: drawn arc progress 0‥1
-anim_circle  = None   # (center, radius)
-anim_t       = 0.0
+anim_circle     = None   # (center, radius)
+anim_t          = 0.0
+anim_start_ang  = -math.pi / 2   # angle on the circle where drawing begins
 
 # ==================================================
-# DRAWING
+# TOGGLE BUTTON
 # ==================================================
 
 TOGGLE_RECT = pygame.Rect(WIDTH - 140, 20, 120, 36)
 
 def draw_toggle():
-    bg  = theme["toggle_bg"]
-    fg  = theme["toggle_fg"]
+    bg = theme["toggle_bg"]
+    fg = theme["toggle_fg"]
     pygame.draw.rect(screen, bg, TOGGLE_RECT, border_radius=8)
     pygame.draw.rect(screen, fg, TOGGLE_RECT, 1, border_radius=8)
-    label = font.render(f"[B]  {theme['label']}", True, fg)
-    screen.blit(label, (TOGGLE_RECT.x + 10, TOGGLE_RECT.y + 10))
+    lbl = font.render(f"[B]  {theme['label']}", True, fg)
+    screen.blit(lbl, (TOGGLE_RECT.x + 10, TOGGLE_RECT.y + 10))
 
-def redraw(extra_circle=None, extra_t=1.0):
+# ==================================================
+# DRAW HELPERS
+# ==================================================
+
+def lerp_color(c, alpha):
+    """Return color c with brightness scaled by alpha (0-255)."""
+    s = alpha / 255
+    return (round(c[0]*s), round(c[1]*s), round(c[2]*s))
+
+def draw_arc(center, radius, start_angle, sweep, color):
+    """Draw a partial arc: sweep is 0..1 fraction of the full circle."""
+    r = round(radius)
+    if r < 1 or sweep <= 0:
+        return
+    n_segs = max(8, round(180 * sweep))
+    end_a  = start_angle + 2 * math.pi * sweep
+    prev   = None
+    for i in range(n_segs + 1):
+        a  = start_angle + (end_a - start_angle) * i / n_segs
+        px = center[0] + r * math.cos(a)
+        py = center[1] + r * math.sin(a)
+        if prev:
+            pygame.draw.line(screen, color, prev, (round(px), round(py)), 1)
+        prev = (round(px), round(py))
+
+def redraw():
     screen.fill(theme["background"])
 
     # Completed circles
@@ -91,33 +117,16 @@ def redraw(extra_circle=None, extra_t=1.0):
             round(radius), 1
         )
 
-    # Partially drawn animating circle
-    c = extra_circle or anim_circle
-    t = extra_t      if extra_circle else anim_t
-    if c and t > 0:
-        cx, cy = c[0], c[1]
-        r = round(c[1]) if isinstance(c, tuple) and len(c) == 2 and not hasattr(c[0], '__len__') else None
-        # unpack properly
-        center2, radius2 = c
-        r2 = round(radius2)
-        if r2 >= 1:
-            # draw arc as many short line segments
-            n_segs = max(12, round(120 * t))
-            end_angle = -math.pi/2 + 2 * math.pi * t   # start from top
-            start_angle = -math.pi/2
-            prev = None
-            for i in range(n_segs + 1):
-                a = start_angle + (end_angle - start_angle) * i / n_segs
-                px = center2[0] + r2 * math.cos(a)
-                py = center2[1] + r2 * math.sin(a)
-                if prev:
-                    pygame.draw.line(screen, theme["circle"], prev, (round(px), round(py)), 1)
-                prev = (round(px), round(py))
+    # Animating circle (partial arc)
+    if anim_circle and anim_t > 0:
+        center, radius = anim_circle
+        draw_arc(center, radius, anim_start_ang, anim_t, theme["circle"])
 
-    # Points (on top)
-    for pt in done_points:
-        pygame.draw.circle(screen, theme["point"],
-                           (round(pt[0]), round(pt[1])), 5)
+    # Points with alpha
+    pc = theme["point"]
+    for (px, py, alpha) in done_points:
+        color = lerp_color(pc, alpha)
+        pygame.draw.circle(screen, color, (round(px), round(py)), 5)
 
     draw_toggle()
     pygame.display.flip()
@@ -143,14 +152,41 @@ def toggle_theme():
     redraw()
 
 # ==================================================
-# ANIMATED CIRCLE
+# GEOMETRY
+# ==================================================
+
+def midpoint(a, b):
+    return ((a[0]+b[0])/2, (a[1]+b[1])/2)
+
+def distance(a, b):
+    return math.hypot(a[0]-b[0], a[1]-b[1])
+
+def circle_from_points(a, b):
+    return midpoint(a, b), distance(a, b) / 2
+
+def angle_on_circle(center, point):
+    """Angle (radians) from center to point."""
+    return math.atan2(point[1] - center[1], point[0] - center[0])
+
+# ==================================================
+# ANIMATION PRIMITIVES
 # ==================================================
 
 def ease_in_out(t):
     return t * t * (3 - 2 * t)
 
-def animate_circle(center, radius, duration=DRAW_DURATION):
-    global anim_circle, anim_t
+def animate_circle(center, radius, from_point=None, duration=DRAW_DURATION):
+    """
+    Draw circle arc starting at from_point (if given, else top of circle).
+    from_point: one of the two defining points — arc starts there.
+    """
+    global anim_circle, anim_t, anim_start_ang
+
+    if from_point is not None:
+        anim_start_ang = angle_on_circle(center, from_point)
+    else:
+        anim_start_ang = -math.pi / 2
+
     anim_circle = (center, radius)
     start = time.time()
     while True:
@@ -173,23 +209,49 @@ def pause(seconds):
         pump()
         clock.tick(60)
 
-def add_point(pt):
-    done_points.append(pt)
-    redraw()
-    pump()
+def add_point_fade(pt, duration=POINT_FADE_DUR):
+    """Add a point and animate it fading in."""
+    done_points.append([pt[0], pt[1], 0])
+    idx   = len(done_points) - 1
+    start = time.time()
+    while True:
+        elapsed = time.time() - start
+        raw   = min(elapsed / duration, 1.0)
+        alpha = round(ease_in_out(raw) * 255)
+        done_points[idx][2] = alpha
+        redraw()
+        pump()
+        clock.tick(60)
+        if raw >= 1.0:
+            break
 
-# ==================================================
-# GEOMETRY HELPERS
-# ==================================================
+def add_points_fade(pts, stagger=0.06):
+    """Fade in multiple points with a small stagger between them."""
+    # Kick them all off nearly simultaneously with a small offset
+    # We do them sequentially but keep fade short
+    for pt in pts:
+        done_points.append([pt[0], pt[1], 0])
 
-def midpoint(a, b):
-    return ((a[0]+b[0])/2, (a[1]+b[1])/2)
+    idxs  = list(range(len(done_points) - len(pts), len(done_points)))
+    starts = [time.time() + i * stagger for i in range(len(pts))]
+    dur    = POINT_FADE_DUR
 
-def distance(a, b):
-    return math.hypot(a[0]-b[0], a[1]-b[1])
-
-def circle_from_points(a, b):
-    return midpoint(a, b), distance(a, b)/2
+    done_flags = [False] * len(pts)
+    while not all(done_flags):
+        now = time.time()
+        for i, idx in enumerate(idxs):
+            if done_flags[i]:
+                continue
+            elapsed = now - starts[i]
+            if elapsed < 0:
+                continue
+            raw   = min(elapsed / dur, 1.0)
+            done_points[idx][2] = round(ease_in_out(raw) * 255)
+            if raw >= 1.0:
+                done_flags[i] = True
+        redraw()
+        pump()
+        clock.tick(60)
 
 # ==================================================
 # BASE GEOMETRY
@@ -200,43 +262,42 @@ A = CENTER
 angles = [-math.pi/2, 0, math.pi/2, math.pi]
 outer  = []
 for ang in angles:
-    outer.append((A[0] + BASE_RADIUS*math.cos(ang),
-                  A[1] + BASE_RADIUS*math.sin(ang)))
+    outer.append((A[0] + BASE_RADIUS * math.cos(ang),
+                  A[1] + BASE_RADIUS * math.sin(ang)))
 
 TOP, RIGHT, BOTTOM, LEFT = outer
 
 # ==================================================
-# CONSTRUCTION STAGES
+# CONSTRUCTION
 # ==================================================
 
-# ── Stage 1: original circle
+# ── Stage 1: original circle — start from TOP (first defined point)
 redraw()
 pause(0.3)
-animate_circle(A, BASE_RADIUS)
+animate_circle(A, BASE_RADIUS, from_point=TOP)
 pause(STAGE_PAUSE)
 
-# ── Stage 2: mark points
-add_point(A)
-for p in outer:
-    add_point(p)
+# ── Stage 2: mark points — fade in center first, then outer points
+add_points_fade([A] + list(outer), stagger=0.07)
 pause(STAGE_PAUSE)
 
-# ── Stage 3: center→outer circles (vertical then horizontal)
+# ── Stage 3: center→outer circles
+#    Each circle defined by (A, p); start arc at A
 for p in [TOP, BOTTOM]:
     c, r = circle_from_points(A, p)
-    animate_circle(c, r)
+    animate_circle(c, r, from_point=A)
     pause(PAUSE_BETWEEN)
 
 pause(PAUSE_BETWEEN)
 
 for p in [LEFT, RIGHT]:
     c, r = circle_from_points(A, p)
-    animate_circle(c, r)
+    animate_circle(c, r, from_point=A)
     pause(PAUSE_BETWEEN)
 
 pause(STAGE_PAUSE)
 
-# ── Stage 4: outer pair circles
+# ── Stage 4: outer pair circles — start at first point of each pair
 pairs = [
     (TOP, RIGHT), (BOTTOM, LEFT),
     (TOP, LEFT),  (BOTTOM, RIGHT),
@@ -246,7 +307,7 @@ pairs = [
 for i in range(0, len(pairs), 2):
     for p1, p2 in pairs[i:i+2]:
         c, r = circle_from_points(p1, p2)
-        animate_circle(c, r)
+        animate_circle(c, r, from_point=p1)
         pause(PAUSE_BETWEEN)
     pause(PAUSE_BETWEEN)
 
@@ -260,7 +321,7 @@ for center, radius in done_circles:
         max_extent = extent
 
 FIRST_OUTER_RADIUS = max_extent
-animate_circle(A, FIRST_OUTER_RADIUS)
+animate_circle(A, FIRST_OUTER_RADIUS, from_point=None)
 pause(STAGE_PAUSE)
 
 # ── Level-1 projected points
@@ -274,19 +335,16 @@ for p in inner_midpoints:
         A[1] + FIRST_OUTER_RADIUS * math.sin(angle),
     ))
 
-for p in projected:
-    add_point(p)
-
+add_points_fade(projected, stagger=0.07)
 pause(STAGE_PAUSE)
 
-# ── All 9 points → all circle pairs
+# ── All 9 points → all circle pairs — start at p1
 all_points = [A] + projected + outer
 all_pairs  = list(itertools.combinations(all_points, 2))
 
 for p1, p2 in all_pairs:
     c, r = circle_from_points(p1, p2)
-    animate_circle(c, r)
-    # tiny gap
+    animate_circle(c, r, from_point=p1)
     pump()
 
 pause(STAGE_PAUSE)
@@ -298,7 +356,7 @@ for center, radius in done_circles:
     if extent > max_extent2:
         max_extent2 = extent
 
-animate_circle(A, max_extent2)
+animate_circle(A, max_extent2, from_point=None)
 
 # ==================================================
 # IDLE LOOP
