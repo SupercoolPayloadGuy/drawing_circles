@@ -75,12 +75,30 @@ def level_name(n):
     return LEVEL_NAMES.get(n, f"depth {n}")
 
 
-# depth colour for the preview rings
+def _interp_stops(stops, t):
+    """Interpolate RGB through a list of (position, (r,g,b)) stops."""
+    t = max(0.0, min(1.0, t))
+    for i in range(len(stops) - 1):
+        pos, col = stops[i]
+        npos, ncol = stops[i + 1]
+        if pos <= t <= npos:
+            lt = (t - pos) / (npos - pos)
+            return (round(col[0] + (ncol[0] - col[0]) * lt),
+                    round(col[1] + (ncol[1] - col[1]) * lt),
+                    round(col[2] + (ncol[2] - col[2]) * lt))
+    return stops[-1][1]
+
+
+_PREVIEW_STOPS = [
+    (0.0,  (255, 130,  40)),
+    (0.25, (70,  230,  90)),
+    (0.5,  (40,  190, 255)),
+    (0.75, (190, 70,  255)),
+    (1.0,  (255, 60,  190)),
+]
+
 def preview_color(depth_01):
-    inner = (255, 200, 80)
-    outer = (80,  160, 255)
-    t = max(0.0, min(1.0, depth_01))
-    return lerp3(inner, outer, t)
+    return _interp_stops(_PREVIEW_STOPS, depth_01)
 
 
 # ──────────────────────────────────────────────

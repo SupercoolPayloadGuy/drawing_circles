@@ -10,58 +10,80 @@ import pygame
 # THEMES
 # ──────────────────────────────────────────────
 
+def _interp_stops(stops, t):
+    """Interpolate RGB through a list of (position, (r,g,b)) stops."""
+    t = max(0.0, min(1.0, t))
+    for i in range(len(stops) - 1):
+        pos, col = stops[i]
+        npos, ncol = stops[i + 1]
+        if pos <= t <= npos:
+            lt = (t - pos) / (npos - pos)
+            return (round(col[0] + (ncol[0] - col[0]) * lt),
+                    round(col[1] + (ncol[1] - col[1]) * lt),
+                    round(col[2] + (ncol[2] - col[2]) * lt))
+    return stops[-1][1]
+
+
 DARK_THEME = {
-    "background": (10, 10, 10),
-    "toggle_bg":  (25, 25, 25),
-    "toggle_fg":  (180, 180, 180),
-    "hud_fg":     (130, 130, 130),
-    "label":      "DARK",
-    # depth gradient: warm inner → cool outer  (RGB tuples)
-    "depth_inner": (255, 200,  80),   # amber
-    "depth_outer": ( 80, 160, 255),   # sky-blue
-    "point_inner": (255, 220,  50),
-    "point_outer": (100, 200, 255),
+    "background":  (10, 10, 10),
+    "toggle_bg":   (25, 25, 25),
+    "toggle_fg":   (180, 180, 180),
+    "hud_fg":      (130, 130, 130),
+    "label":       "DARK",
+    "circle_stops": [
+        (0.0,  (255, 130,  40)),   # orange
+        (0.25, (70,  230,  90)),   # green
+        (0.5,  (40,  190, 255)),   # sky blue
+        (0.75, (190, 70,  255)),   # purple
+        (1.0,  (255, 60,  190)),   # pink
+    ],
+    "point_stops": [
+        (0.0,  (255, 220,  60)),   # gold
+        (0.25, (140, 255, 110)),   # lime
+        (0.5,  (90,  230, 255)),   # light blue
+        (0.75, (230, 120, 255)),   # lavender
+        (1.0,  (255, 110, 210)),   # light pink
+    ],
 }
 
 LIGHT_THEME = {
-    "background": (245, 245, 240),
-    "toggle_bg":  (220, 220, 210),
-    "toggle_fg":  ( 50,  50,  50),
-    "hud_fg":     (120, 120, 120),
-    "label":      "LIGHT",
-    "depth_inner": (180,  80,  20),   # burnt orange
-    "depth_outer": ( 20,  80, 180),   # deep blue
-    "point_inner": (200,  60,  10),
-    "point_outer": ( 20, 100, 200),
+    "background":  (245, 240, 235),
+    "toggle_bg":   (230, 225, 220),
+    "toggle_fg":   (50,  50,  50),
+    "hud_fg":      (100, 100, 100),
+    "label":       "LIGHT",
+    "circle_stops": [
+        (0.0,  (180,  85,  25)),   # burnt orange
+        (0.25, (35,  145,  55)),   # forest green
+        (0.5,  (25,  105, 165)),   # steel blue
+        (0.75, (105,  45, 165)),   # deep purple
+        (1.0,  (165,  35, 105)),   # magenta
+    ],
+    "point_stops": [
+        (0.0,  (200, 150,  35)),   # dark gold
+        (0.25, (95,  185,  65)),   # olive green
+        (0.5,  (55,  155, 195)),   # teal
+        (0.75, (145,  75, 185)),   # plum
+        (1.0,  (185,  65, 135)),   # rose
+    ],
 }
+
 
 # ──────────────────────────────────────────────
 # DEPTH COLOUR  (shared helper, theme-aware)
 # ──────────────────────────────────────────────
 
 def depth_color(theme, depth_01, base_alpha=220):
-    """
-    Interpolate between inner and outer colour based on depth_01 in [0,1].
-    Returns an (R,G,B) tuple with brightness scaled by base_alpha/255.
-    """
-    t  = max(0.0, min(1.0, depth_01))
-    ci = theme["depth_inner"]
-    co = theme["depth_outer"]
-    r  = round(ci[0] + (co[0] - ci[0]) * t)
-    g  = round(ci[1] + (co[1] - ci[1]) * t)
-    b  = round(ci[2] + (co[2] - ci[2]) * t)
-    s  = base_alpha / 255
+    t = max(0.0, min(1.0, depth_01))
+    r, g, b = _interp_stops(theme["circle_stops"], t)
+    s = base_alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 
 
 def point_color(theme, depth_01, alpha=255):
-    t  = max(0.0, min(1.0, depth_01))
-    ci = theme["point_inner"]
-    co = theme["point_outer"]
-    r  = round(ci[0] + (co[0] - ci[0]) * t)
-    g  = round(ci[1] + (co[1] - ci[1]) * t)
-    b  = round(ci[2] + (co[2] - ci[2]) * t)
-    s  = alpha / 255
+    t = max(0.0, min(1.0, depth_01))
+    r, g, b = _interp_stops(theme["point_stops"], t)
+    s = alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 
 
