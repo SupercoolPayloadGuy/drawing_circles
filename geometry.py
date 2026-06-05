@@ -69,7 +69,7 @@ def all_pairs(points):
 
 def cardinal_points(center, radius):
     """Return [TOP, RIGHT, BOTTOM, LEFT] on a circle."""
-    import math
     cx, cy = center
     angles = [-math.pi / 2, 0, math.pi / 2, math.pi]
-    return [(cx + radius * math.cos(a), cy + radius * math.sin(a)) for a in angles]
+    return [(cx + radius * math.cos(a), cy + radius * math.sin(a))
+            for a in angles]

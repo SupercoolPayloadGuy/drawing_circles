@@ -84,6 +84,7 @@ python main.py
 - Auto-zoom to keep new circles visible
 - Theme toggle and zoom controls
 - Point fade-in animation and easing curves
+- Smoother animation timing and improved drawing order
 
 ## TODO
 

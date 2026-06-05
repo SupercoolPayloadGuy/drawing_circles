@@ -1,13 +1,9 @@
 """
-animation.py — timing, easing, animated circle drawing, point fade-in,
-               auto-zoom to keep the construction on screen.
+animation.py — timing, easing, pause/play, animated circle drawing,
+               point fade-in, auto-zoom, draw_all_pairs.
 
-Depends on a shared `state` object that holds:
-  state.renderer   — Renderer instance
-  state.clock      — pygame.time.Clock
-  state.done_circles, state.done_points  (mirrored from renderer)
-
-The pump() function handles events (quit, theme toggle, scroll).
+Each circle and point now carries a `depth` value (float ≥ 0) that
+the renderer uses for colour grading.
 """
 
 import math
@@ -17,6 +13,7 @@ import pygame
 from geometry import (
     angle_on_circle, farthest_extent, circle_from_points, all_pairs
 )
+from renderer import RESTART_EVENT
 
 
 # ──────────────────────────────────────────────
@@ -28,22 +25,36 @@ def ease_in_out(t):
 
 
 # ──────────────────────────────────────────────
-# SHARED STATE  (filled in by main.py)
+# DURATION SCALING
+# ──────────────────────────────────────────────
+
+def draw_duration(level):
+    """
+    Hyperbolic scaling: fast at high levels, never below floor.
+    L1=0.30  L2=0.22  L3=0.15  L5=0.09  L10=0.05  L20+=0.025
+    """
+    base  = 0.30
+    k     = 0.35
+    floor = 0.025
+    return max(floor, base / (1.0 + k * (level - 1)))
+
+
+# ──────────────────────────────────────────────
+# SHARED STATE
 # ──────────────────────────────────────────────
 
 class AnimState:
-    def __init__(self, renderer, clock, draw_duration, pause_between,
-                 stage_pause, point_fade_dur):
-        self.renderer       = renderer
-        self.clock          = clock
-        self.draw_duration  = draw_duration
-        self.pause_between  = pause_between
-        self.stage_pause    = stage_pause
-        self.point_fade_dur = point_fade_dur
+    def __init__(self, renderer, clock, level):
+        self.renderer      = renderer
+        self.clock         = clock
+        self.draw_duration = draw_duration(level)
+        self.pause_between = 0.06
+        self.stage_pause   = 0.28
+        self.point_fade    = 0.38
 
-        # mirrors of renderer lists (same objects)
-        self.done_circles  = renderer.done_circles
-        self.done_points   = renderer.done_points
+        # Same list objects as renderer — mutations are reflected immediately
+        self.done_circles = renderer.done_circles   # [(wc, wr, depth), …]
+        self.done_points  = renderer.done_points    # [[wx,wy,alpha,depth], …]
 
 
 # ──────────────────────────────────────────────
@@ -52,76 +63,98 @@ class AnimState:
 
 def pump(state):
     r = state.renderer
+    r.update_hover(pygame.mouse.get_pos())
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit()
-            raise SystemExit
+            pygame.quit(); raise SystemExit
+
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_b, pygame.K_SPACE):
+            if event.key in (pygame.K_b,):
                 r.toggle_theme()
-        if event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.key == pygame.K_p:
+                r.paused = not r.paused
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if r.toggle_rect.collidepoint(event.pos):
                 r.toggle_theme()
+            elif not r.animation_done and r.pause_rect.collidepoint(event.pos):
+                r.paused = not r.paused
+            elif r.animation_done and r.restart_rect.collidepoint(event.pos):
+                pygame.event.post(pygame.event.Event(RESTART_EVENT))
+
         if event.type == pygame.MOUSEWHEEL:
             r.camera.scroll(event.y)
 
+        if event.type == RESTART_EVENT:
+            return True   # signal restart to caller
+
+    return False
+
 
 # ──────────────────────────────────────────────
-# AUTO-ZOOM  (called after each circle is added)
+# AUTO-ZOOM
 # ──────────────────────────────────────────────
-
-_MARGIN = 0.88   # fraction of half-screen used
 
 def auto_zoom(state, origin):
-    """Fit zoom so the farthest circle extent is visible."""
-    extent = farthest_extent(origin, state.done_circles)
+    extent = farthest_extent(origin, [(c, r) for c, r, _ in state.done_circles])
     if extent > 0:
-        state.renderer.camera.fit_radius(extent, _MARGIN)
+        state.renderer.camera.fit_radius(extent, 0.88)
 
 
 # ──────────────────────────────────────────────
 # ANIMATE CIRCLE
 # ──────────────────────────────────────────────
 
-def animate_circle(state, center, radius, from_point=None, origin=None):
+def animate_circle(state, center, radius, depth=0.0,
+                   from_point=None, origin=None):
     r = state.renderer
-    r.anim_circle = (center, radius)
-    r.anim_t      = 0.0
+    r.anim_circle    = (center, radius, depth)
+    r.anim_t         = 0.0
+    r.anim_start_ang = (angle_on_circle(center, from_point)
+                        if from_point is not None else -math.pi / 2)
 
-    if from_point is not None:
-        r.anim_start_ang = angle_on_circle(center, from_point)
-    else:
-        r.anim_start_ang = -math.pi / 2
+    # Track elapsed excluding paused time
+    draw_t  = 0.0
+    prev_ts = time.time()
 
-    start = time.time()
     while True:
-        elapsed = time.time() - start
-        raw     = min(elapsed / state.draw_duration, 1.0)
+        now     = time.time()
+        if not r.paused:
+            draw_t += now - prev_ts
+        prev_ts = now
+
+        raw    = min(draw_t / state.draw_duration, 1.0)
         r.anim_t = ease_in_out(raw)
         r.redraw()
-        pump(state)
+        if pump(state):
+            raise _RestartSignal()
         state.clock.tick(60)
         if raw >= 1.0:
             break
 
-    state.done_circles.append((center, radius))
+    state.done_circles.append((center, radius, depth))
     r.anim_circle = None
     r.anim_t      = 0.0
 
-    # Auto-zoom after every circle so construction stays on screen
     if origin is not None:
         auto_zoom(state, origin)
 
 
 # ──────────────────────────────────────────────
-# PAUSE
+# PAUSE (animation stage gap)
 # ──────────────────────────────────────────────
 
 def pause(state, seconds):
-    end = time.time() + seconds
-    while time.time() < end:
+    elapsed = 0.0
+    prev_ts = time.time()
+    while elapsed < seconds:
+        now = time.time()
+        if not state.renderer.paused:
+            elapsed += now - prev_ts
+        prev_ts = now
         state.renderer.redraw()
-        pump(state)
+        if pump(state):
+            raise _RestartSignal()
         state.clock.tick(60)
 
 
@@ -129,34 +162,35 @@ def pause(state, seconds):
 # POINT FADE-IN
 # ──────────────────────────────────────────────
 
-def add_points_fade(state, pts, stagger=0.06):
-    """
-    Add world-space points to the renderer and animate them fading in
-    with a stagger between each.
-    """
+def add_points_fade(state, pts, depth=0.0, stagger=0.06):
     base_idx = len(state.done_points)
     for pt in pts:
-        state.done_points.append([pt[0], pt[1], 0])
+        state.done_points.append([pt[0], pt[1], 0, depth])
 
     idxs   = list(range(base_idx, base_idx + len(pts)))
-    starts = [time.time() + i * stagger for i in range(len(pts))]
+    # Each point gets its own elapsed counter (independent of wall clock when paused)
+    timers = [-(i * stagger) for i in range(len(pts))]   # negative = not started yet
     flags  = [False] * len(pts)
-    dur    = state.point_fade_dur
+    dur    = state.point_fade
+    prev_ts = time.time()
 
     while not all(flags):
-        now = time.time()
+        now  = time.time()
+        dt   = (now - prev_ts) if not state.renderer.paused else 0.0
+        prev_ts = now
         for i, idx in enumerate(idxs):
             if flags[i]:
                 continue
-            elapsed = now - starts[i]
-            if elapsed < 0:
+            timers[i] += dt
+            if timers[i] < 0:
                 continue
-            raw = min(elapsed / dur, 1.0)
+            raw = min(timers[i] / dur, 1.0)
             state.done_points[idx][2] = round(ease_in_out(raw) * 255)
             if raw >= 1.0:
                 flags[i] = True
         state.renderer.redraw()
-        pump(state)
+        if pump(state):
+            raise _RestartSignal()
         state.clock.tick(60)
 
 
@@ -164,8 +198,20 @@ def add_points_fade(state, pts, stagger=0.06):
 # DRAW ALL PAIRS
 # ──────────────────────────────────────────────
 
-def draw_all_pairs(state, points, origin=None):
+def draw_all_pairs(state, points, depth=0.0, origin=None):
     for p1, p2 in all_pairs(points):
         c, r = circle_from_points(p1, p2)
-        animate_circle(state, c, r, from_point=p1, origin=origin)
+        animate_circle(state, c, r, depth=depth, from_point=p1, origin=origin)
         pump(state)
+
+
+# ──────────────────────────────────────────────
+# RESTART SIGNAL
+# ──────────────────────────────────────────────
+
+class _RestartSignal(Exception):
+    """Raised internally to unwind the call stack on restart."""
+    pass
+
+# Re-export so main.py can catch it
+RestartSignal = _RestartSignal
