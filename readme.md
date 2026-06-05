@@ -1,92 +1,102 @@
 # Drawing Circles - Recursive Geometric Construction
 
-A visualization of a recursive geometric algorithm that constructs circles based on points on a base circle.
+A pygame visualization of recursive circle construction built from point pairs on a base circle.
 
 ## Project Overview
 
-This project demonstrates a beautiful geometric pattern by recursively drawing circles. The algorithm starts with a base circle, places N points on its circumference, and then draws circles connecting these points in various combinations.
+This repository contains a working animated construction of circle geometry. The main flow begins with a base circle, builds cardinal and pairwise circles, and expands outward through successive levels while keeping the drawing centered and visible.
 
-## How It Works
+## Current Behavior
 
-### Algorithm Steps
+- `main.py` is the primary entry point.
+- An intro level-select screen appears first.
+- The animation builds circles step-by-step.
+- Points fade in, circles draw with easing, and the view auto-zooms.
+- Theme toggling and scroll zoom are supported.
 
-1. **Initial Circle**: Draw a base circle with radius R and center at origin
-2. **Place Points**: Distribute N equally-spaced points on the circumference of the base circle
-3. **Inner Circles**: Draw circles connecting the center point to each outer point (diameter = distance between center and point)
-4. **Outer Circles**: Draw circles between every pair of points on the circumference (diameter = distance between the two points)
+## What You Can Run
 
-### Mathematical Foundation
+### `main.py`
+The main application:
+- Runs a pygame intro screen with level selection.
+- Supports levels 1 through 6.
+- Animates a base circle, inner circles, and additional rings.
+- Automatically expands the construction ring-by-ring.
 
-- Points are placed at angles: `θ = 2π * i / N` (where i ranges from 0 to N-1)
-- Circle center between two points: midpoint of the line connecting them
-- Circle radius: half the distance between the two points
-- Each new circle follows the same construction principles recursively
+**Controls**:
+- `ENTER` to start after choosing a level
+- `UP` / `DOWN` / mouse wheel to change the level
+- `B` or space to toggle dark/light theme
+- mouse wheel to zoom in/out during the animation
 
-## Scripts
+**Run**: `python main.py`
 
-### `simple_circle.py`
-**Graphics Library**: Turtle (Python's built-in graphics module)
+### `examples/circle_algorithm.py`
+A standalone pygame example that prompts for a level in the console and animates the construction.
 
-Static visualization of the circle construction algorithm. This script:
-- Draws the complete pattern without animation
-- Uses turtle graphics for simplicity
-- Fast rendering of all geometric elements
-- Best for understanding the final result
+### `examples/simple_circle.py`
+A turtle-based static version in `examples/` for quick geometry exploration.
 
-**Key Settings**:
-- `R = 150`: Radius of the base circle
-- `N = 4`: Number of points on the base circle
+### `examples/double_circle.py`
+A second pygame example in `examples/` showcasing the same circle construction logic with an alternate script layout.
 
-**Run**: `python simple_circle.py`
+## Core Modules
 
-### `double_circle.py`
-**Graphics Library**: Pygame
+- `geometry.py` — pure math helpers: midpoint, distance, circle-from-pair, projections, deduplication, point pairs, and cardinal points.
+- `animation.py` — animation timing, easing, circle drawing, point fade-in, and event pumping.
+- `renderer.py` — pygame rendering, camera transforms, themes, HUD, and toggle UI.
+- `intro.py` — animated intro screen and level selector.
 
-Animated visualization of the circle construction algorithm. This script:
-- Animates each step of the construction process
-- Uses pygame for better performance and control
-- Shows circles and points appearing progressively
-- Helpful for understanding the construction sequence
+## Installation
 
-**Key Settings**:
-- `WIDTH = 1200, HEIGHT = 1200`: Canvas size
-- `BASE_RADIUS = 140`: Radius of the base circle
-- `DELAY = 1`: Seconds between animation steps
+This project uses Python and relies on `pygame` for the main animation.
 
-**Run**: `python double_circle.py` (requires pygame: `pip install pygame`)
+1. Create and activate a Python virtual environment (recommended):
 
-## Visual Examples
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-With N=4 points:
-- 1 base circle
-- 4 circles connecting center to outer points
-- 6 circles connecting pairs of outer points (C(4,2) = 6)
-- **Total: 11 circles**
+2. Install dependencies from `requirements.txt`:
 
-With N=6 points:
-- 1 base circle
-- 6 circles connecting center to outer points
-- 15 circles connecting pairs of outer points (C(6,2) = 15)
-- **Total: 22 circles**
+```bash
+pip install -r requirements.txt
+```
 
-## Dependencies
+3. Run the main app:
 
-- **simple_circle.py**: None (uses built-in turtle module)
-- **double_circle.py**: `pygame` (install via `pip install pygame`)
+```bash
+python main.py
+```
+
+### Optional
+
+- `examples/simple_circle.py` uses Python's built-in `turtle` module and does not require extra packages.
+- `examples/circle_algorithm.py` and `examples/double_circle.py` use `pygame`.
+
+## Status
+
+**Done:**
+- Animated circle construction in pygame
+- Intro level selection screen with mouse/keyboard controls
+- Recursive ring expansion for levels 1+ up to 6
+- Auto-zoom to keep new circles visible
+- Theme toggle and zoom controls
+- Point fade-in animation and easing curves
 
 ## TODO
 
-- [ ] **Algorithm Enhancement**: Implement infinite recursive steps - extend the algorithm to recursively apply the same construction to newly created circles, creating a fractal-like pattern
-- [ ] **Animation Improvements**: Enhance the pygame animation with:
-  - Smooth transitions and easing effects
-  - Color gradients based on recursion depth
-  - Interactive controls (pause/play, speed adjustment)
-  - Trail effects or fade-out for completed circles
-  - Better visual hierarchy showing construction order
+- [ ] Add a pause/play control for the main animation
+- [ ] Add a reset/restart button after the animation finishes
+- [ ] Improve level visuals with depth-based color or opacity
+- [ ] Add direct keyboard controls for level selection during intro
+- [ ] Support more than 6 levels with smarter duration scaling
+- [ ] Write a small `README` screenshot or sample output image
 
 ## Future Enhancements
 
-- Support for different polygon shapes (triangles, pentagons, etc.)
-- 3D visualization with matplotlib or VTK
-- Export frames to video format
-- Performance optimization for deep recursion
+- Add a fractal-style recursive construction of newly created circles
+- Export animation frames or GIF/video output
+- Add support for alternate base shapes (polygons, ellipses)
+- Add a non-pygame web/HTML5 rendering version
