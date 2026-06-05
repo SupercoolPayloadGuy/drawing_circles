@@ -15,6 +15,31 @@ body{display:flex;flex-direction:column;
 #canvas-wrap{flex:1;position:relative;overflow:hidden}
 #canvas-wrap canvas{display:block;width:100%;height:100%}
 
+/* ── INTRO OVERLAY ── */
+#intro{position:absolute;top:0;left:0;width:100%;height:100%;
+       display:flex;flex-direction:column;align-items:center;
+       justify-content:center;pointer-events:none}
+#intro > *{pointer-events:auto}
+.intro-title{font-size:42px;font-weight:bold;color:#d7d7d7;
+             letter-spacing:3px;margin-bottom:2px}
+.intro-sub{font-size:16px;color:#5f5f5f;margin-bottom:32px}
+.intro-level{font-size:76px;font-weight:bold;line-height:1}
+.intro-name{font-size:21px;margin-top:8px;margin-bottom:10px}
+.intro-pts{font-size:14px;color:#8c8c8c;margin-bottom:24px}
+.intro-pts .hl{color:#ffc832}
+.intro-type{font-size:14px;color:#5f5f5f;margin-bottom:18px}
+.intro-type .act{color:#ffc832}
+.intro-bar-wrap{width:260px;height:4px;background:#1e1e1e;
+                border-radius:2px;overflow:hidden;margin-bottom:14px}
+.intro-bar-fill{height:100%;border-radius:2px;transition:width .15s}
+.intro-enter{font-size:14px;color:#5f5f5f;margin-bottom:22px}
+.intro-dots{display:flex;gap:14px;align-items:center}
+.intro-dot{width:7px;height:7px;border-radius:50%;background:#1e1e1e;
+           transition:background .15s}
+.intro-dot.act{background:#ffc832}
+.intro-dots-extra{font-size:14px;color:rgb(80,200,255);margin-left:4px}
+
+/* ── BOTTOM UI BAR ── */
 #ui{display:flex;align-items:center;gap:16px;padding:10px 20px;
     background:#1a1a1a;border-top:1px solid #333;
     flex-wrap:wrap;user-select:none;
@@ -29,17 +54,16 @@ body{display:flex;flex-direction:column;
 #ui button.prim{background:#ffc832;color:#111;border-color:#ffc832;font-weight:bold}
 #ui button.prim:hover{background:#ffd966}
 #ui .sep{width:1px;height:24px;background:#444;transition:background .25s}
+#zoom-display{font-size:13px;color:#888;min-width:70px;text-align:center}
+#zoom-display .hl{color:#ffc832}
 
-.hud{position:absolute;top:14px;left:14px;font:13px monospace;color:#888;
-     pointer-events:none;line-height:1.7;transition:color .25s}
-.hud .hl{color:#ffc832}
 #theme-btn{position:absolute;top:12px;right:12px;padding:5px 14px;
            font:12px monospace;background:#191919;color:#b4b4b4;
-           border:1px solid #444;border-radius:6px;cursor:pointer;
+           border:1px solid #444;border-radius:6px;cursor:pointer;z-index:10;
            transition:background .25s,color .25s,border-color .25s}
 #theme-btn:hover{color:#ffc832;border-color:#ffc832}
 
-/* light mode overrides via .light class on body */
+/* ── LIGHT MODE ── */
 body.light{background:#f5f0eb;color:#555}
 body.light #ui{background:#e6e0d8;border-color:#ccc}
 body.light #ui label{color:#888}
@@ -48,16 +72,35 @@ body.light #ui button:hover{background:#d0cac0;color:#333;border-color:#a80}
 body.light #ui button.prim{background:#c90;color:#fff;border-color:#c90}
 body.light #ui button.prim:hover{background:#da1}
 body.light #ui .sep{background:#ccc}
-body.light .hud{color:#999}
+body.light #zoom-display{color:#999}
 body.light #theme-btn{background:#ddd8d0;color:#555;border-color:#bbb}
 body.light #theme-btn:hover{color:#a80;border-color:#a80}
+body.light .intro-title{color:#333}
+body.light .intro-sub{color:#999}
+body.light .intro-pts{color:#999}
+body.light .intro-type{color:#999}
+body.light .intro-enter{color:#999}
+body.light .intro-bar-wrap{background:#ddd}
+body.light .intro-dot{background:#ddd}
 </style>
 </head>
 <body>
 
 <div id="canvas-wrap">
   <canvas id="c"></canvas>
-  <div class="hud" id="hud"></div>
+
+  <div id="intro">
+    <div class="intro-title">CIRCLE CONSTRUCTION</div>
+    <div class="intro-sub">choose your depth</div>
+    <div class="intro-level" id="lvlNum">3</div>
+    <div class="intro-name" id="lvlName">expanded</div>
+    <div class="intro-pts" id="ptsLine">POINTS: <span class="hl">4</span>  [← →] or [A D]</div>
+    <div class="intro-type" id="typeLine">or type a number directly</div>
+    <div class="intro-bar-wrap"><div class="intro-bar-fill" id="barFill"></div></div>
+    <div class="intro-enter">[ENTER] to start</div>
+    <div class="intro-dots" id="dotsWrap"></div>
+  </div>
+
   <button id="theme-btn">[B] DARK</button>
 </div>
 
@@ -65,29 +108,24 @@ body.light #theme-btn:hover{color:#a80;border-color:#a80}
   <label>LEVEL</label>
   <input type="range" id="level-slider" min="1" max="99" value="3">
   <span class="val" id="level-val">3</span>
-
   <div class="sep"></div>
-
   <label>POINTS</label>
   <input type="range" id="pts-slider" min="2" max="24" value="4">
   <span class="val" id="pts-val">4</span>
-
   <div class="sep"></div>
-
   <button id="start-btn" class="prim">▶ START</button>
-  <button id="pause-btn" disabled>▐▐ PAUSE</button>
-  <button id="restart-btn" disabled>↺ RESTART</button>
-
+  <button id="pause-btn" disabled style="display:none">▐▐ PAUSE</button>
+  <button id="restart-btn" disabled style="display:none">↺ RESTART</button>
   <div class="sep"></div>
-
-  <span style="font:12px monospace;color:#555">
+  <span id="zoom-display">zoom <span class="hl">100%</span></span>
+  <span style="font:12px monospace;color:#555;margin-left:auto">
     scroll to zoom &middot; drag to pan
   </span>
 </div>
 
 <script>
 // ───────────────────────────────────────────────────────
-// GEOMETRY  (port of geometry.py)
+// GEOMETRY
 // ───────────────────────────────────────────────────────
 
 const HALF_PI = Math.PI / 2;
@@ -96,46 +134,36 @@ const TAU     = 2 * Math.PI;
 function midpoint(a, b) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
-
 function distance(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
 }
-
 function circleFromPoints(a, b) {
   return { center: midpoint(a, b), radius: distance(a, b) / 2 };
 }
-
 function angleOnCircle(center, point) {
   return Math.atan2(point[1] - center[1], point[0] - center[0]);
 }
-
 function farthestExtent(origin, circles) {
   let best = 0;
-  for (const { center, radius } of circles) {
+  for (const { center, radius } of circles)
     best = Math.max(best, distance(origin, center) + radius);
-  }
   return best;
 }
-
 function projectOntoRing(points, origin, ringRadius) {
   return points.map(p => {
-    const dx = p[0] - origin[0], dy = p[1] - origin[1];
-    const ang = Math.atan2(dy, dx);
+    const ang = Math.atan2(p[1] - origin[1], p[0] - origin[0]);
     return [origin[0] + ringRadius * Math.cos(ang),
             origin[1] + ringRadius * Math.sin(ang)];
   });
 }
-
 function deduplicate(points, snap = 1) {
-  const seen = new Set();
-  const out = [];
+  const seen = new Set(), out = [];
   for (const p of points) {
-    const key = `${Math.round(p[0] / snap)},${Math.round(p[1] / snap)}`;
+    const key = `${Math.round(p[0]/snap)},${Math.round(p[1]/snap)}`;
     if (!seen.has(key)) { seen.add(key); out.push(p); }
   }
   return out;
 }
-
 function allPairs(points) {
   const pairs = [];
   for (let i = 0; i < points.length; i++)
@@ -143,7 +171,6 @@ function allPairs(points) {
       pairs.push([points[i], points[j]]);
   return pairs;
 }
-
 function cardinalPoints(center, radius, count = 4) {
   const pts = [];
   for (let i = 0; i < count; i++) {
@@ -154,16 +181,10 @@ function cardinalPoints(center, radius, count = 4) {
   return pts;
 }
 
-// ───────────────────────────────────────────────────────
-// EASING
-// ───────────────────────────────────────────────────────
-
-function easeInOut(t) {
-  return t * t * (3 - 2 * t);
-}
+function easeInOut(t) { return t * t * (3 - 2 * t); }
 
 // ───────────────────────────────────────────────────────
-// THEMES
+// THEMES & COLOUR
 // ───────────────────────────────────────────────────────
 
 function interpStops(stops, t) {
@@ -173,19 +194,28 @@ function interpStops(stops, t) {
     const [npos, ncol] = stops[i + 1];
     if (t >= pos && t <= npos) {
       const lt = (t - pos) / (npos - pos);
-      return [
-        Math.round(col[0] + (ncol[0] - col[0]) * lt),
-        Math.round(col[1] + (ncol[1] - col[1]) * lt),
-        Math.round(col[2] + (ncol[2] - col[2]) * lt),
-      ];
+      return [Math.round(col[0]+(ncol[0]-col[0])*lt),
+              Math.round(col[1]+(ncol[1]-col[1])*lt),
+              Math.round(col[2]+(ncol[2]-col[2])*lt)];
     }
   }
   return stops[stops.length - 1][1];
 }
 
+const PREVIEW_STOPS = [
+  [0.0,  [255, 130,  40]],
+  [0.25, [ 70, 230,  90]],
+  [0.5,  [ 40, 190, 255]],
+  [0.75, [190,  70, 255]],
+  [1.0,  [255,  60, 190]],
+];
+
+function previewColor(t) {
+  return interpStops(PREVIEW_STOPS, t);
+}
+
 const DARK = {
   bg:       '#0a0a0a',
-  uiBg:     '#1a1a1a',
   label:    'DARK',
   circleStops: [
     [0.0,  [255, 130,  40]],
@@ -205,7 +235,6 @@ const DARK = {
 
 const LIGHT = {
   bg:       '#f5f0eb',
-  uiBg:     '#e6e0d8',
   label:    'LIGHT',
   circleStops: [
     [0.0,  [180,  85,  25]],
@@ -229,7 +258,6 @@ function depthColor(theme, depth01, baseAlpha = 220) {
   const s = baseAlpha / 255;
   return `rgba(${Math.round(r*s)},${Math.round(g*s)},${Math.round(b*s)},1)`;
 }
-
 function pointColor(theme, depth01, alpha = 255) {
   const t = Math.max(0, Math.min(1, depth01));
   const [r, g, b] = interpStops(theme.pointStops, t);
@@ -266,57 +294,198 @@ const camera = {
   origin: [0, 0],
   zoom: 1,
   panX: 0, panY: 0,
-
   w2s(pt) {
-    return [
-      (pt[0] - this.origin[0]) * this.zoom + cx + this.panX,
-      (pt[1] - this.origin[1]) * this.zoom + cy + this.panY,
-    ];
+    return [(pt[0]-this.origin[0])*this.zoom+cx+this.panX,
+            (pt[1]-this.origin[1])*this.zoom+cy+this.panY];
   },
-
   r2s(r) { return r * this.zoom; },
-
   fitRadius(worldRadius, margin = 0.88) {
-    const half = Math.min(W, H) / 2;
-    this.zoom = half * margin / Math.max(worldRadius, 0.001);
+    this.zoom = Math.min(W, H) / 2 * margin / Math.max(worldRadius, 0.001);
+  },
+  scroll(dy) { this.zoom *= (dy > 0 ? 1.15 : 1/1.15); },
+};
+
+// ───────────────────────────────────────────────────────
+// BACKGROUND ANIMATION  (port of intro.py BackgroundAnim)
+// ───────────────────────────────────────────────────────
+
+const bg = {
+  t0: 0,
+  frameId: null,
+
+  start() {
+    this.t0 = performance.now();
+    this.frameId = requestAnimationFrame(t => this.tick(t));
   },
 
-  scroll(dy) {
-    const step = 1.15;
-    this.zoom *= (dy > 0 ? step : 1 / step);
+  stop() {
+    if (this.frameId) { cancelAnimationFrame(this.frameId); this.frameId = null; }
+  },
+
+  tick(now) {
+    this.draw((now - this.t0) / 1000);
+    this.frameId = requestAnimationFrame(t => this.tick(t));
+  },
+
+  draw(t) {
+    const th = state.theme;
+    ctx.fillStyle = th.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const BR = 90;
+    const N = state.pointCount;
+    const breath = 1 + 0.07 * Math.sin(t * 0.85);
+    const r = BR * breath;
+
+    // rings
+    const ringsToShow = Math.min(state.level, 5);
+    for (let i = 0; i < ringsToShow; i++) {
+      const rr = r * (1 + i * 0.55);
+      const dep = i / Math.max(ringsToShow - 1, 1);
+      const col = previewColor(dep);
+      const alpha = Math.max(20, 140 - i * 22);
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, TAU);
+      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha/255})`;
+      ctx.stroke();
+    }
+
+    // base circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.strokeStyle = `rgba(90,90,90,${170/255})`;
+    ctx.stroke();
+
+    // points
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const a = -HALF_PI + TAU * i / N;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+
+    // inner pair circles
+    for (const [px, py] of pts) {
+      const mr = Math.hypot(px - cx, py - cy) / 2;
+      const mcx = (px + cx) / 2, mcy = (py + cy) / 2;
+      ctx.beginPath();
+      ctx.arc(mcx, mcy, mr, 0, TAU);
+      ctx.strokeStyle = `rgba(65,65,65,${80/255})`;
+      ctx.stroke();
+    }
+
+    // neighbor pair circles
+    for (let i = 0; i < N; i++) {
+      const [p1x, p1y] = pts[i];
+      const [p2x, p2y] = pts[(i + 1) % N];
+      const mr = Math.hypot(p1x - p2x, p1y - p2y) / 2;
+      const mcx = (p1x + p2x) / 2, mcy = (p1y + p2y) / 2;
+      ctx.beginPath();
+      ctx.arc(mcx, mcy, mr, 0, TAU);
+      ctx.strokeStyle = `rgba(55,55,55,${60/255})`;
+      ctx.stroke();
+    }
+
+    // expanding wave
+    const wavePeriod = 3.5;
+    const phase = (t % wavePeriod) / wavePeriod;
+    const waveR = r * (1 + phase * 2.8);
+    const wCol = previewColor(phase);
+    ctx.beginPath();
+    ctx.arc(cx, cy, waveR, 0, TAU);
+    ctx.strokeStyle = `rgba(${wCol[0]},${wCol[1]},${wCol[2]},${Math.round((1-phase)*55)/255})`;
+    ctx.stroke();
+
+    // dots for each point
+    for (const [px, py] of pts) {
+      ctx.beginPath(); ctx.arc(px, py, 4, 0, TAU);
+      ctx.fillStyle = `rgba(255,220,50,${170/255})`;
+      ctx.fill();
+    }
+    // center dot
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, TAU);
+    ctx.fillStyle = `rgba(255,220,50,${200/255})`;
+    ctx.fill();
   },
 };
 
 // ───────────────────────────────────────────────────────
-// STATE
+// INTRO OVERLAY
+// ───────────────────────────────────────────────────────
+
+const LEVEL_NAMES = {1:"base",2:"default",3:"expanded",4:"deep",5:"intense",
+                     6:"extreme",7:"void",8:"abyss",9:"beyond"};
+
+function levelName(n) { return LEVEL_NAMES[n] || `depth ${n}`; }
+
+const lvlNumEl  = document.getElementById('lvlNum');
+const lvlNameEl = document.getElementById('lvlName');
+const ptsLineEl = document.getElementById('ptsLine');
+const typeLine  = document.getElementById('typeLine');
+const barFill   = document.getElementById('barFill');
+const dotsWrap  = document.getElementById('dotsWrap');
+
+function updateIntro() {
+  const lvl  = state.level;
+  const pts  = state.pointCount;
+  const depT = Math.min(1, (lvl - 1) / 8);
+  const col  = previewColor(depT);
+
+  lvlNumEl.textContent = lvl;
+  lvlNumEl.style.color = `rgb(${col[0]},${col[1]},${col[2]})`;
+
+  lvlNameEl.textContent = levelName(lvl);
+  const nameCol = interpStops([...PREVIEW_STOPS], depT);
+  lvlNameEl.style.color = `rgb(${nameCol[0]},${nameCol[1]},${nameCol[2]})`;
+
+  ptsLineEl.innerHTML = `POINTS: <span class="hl" style="color:rgb(${col[0]},${col[1]},${col[2]})">${pts}</span>  [← →] or [A D]`;
+
+  // progress bar
+  const pct = Math.min(100, ((lvl - 1) / 8) * 100);
+  barFill.style.width = pct + '%';
+  barFill.style.background = `rgb(${col[0]},${col[1]},${col[2]})`;
+
+  // dots
+  const MAX_DOTS = 9;
+  const shown = Math.min(lvl, MAX_DOTS);
+  dotsWrap.innerHTML = '';
+  for (let i = 0; i < MAX_DOTS; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'intro-dot' + (i < shown ? ' act' : '');
+    if (i < shown) {
+      const dc = previewColor(i / (MAX_DOTS - 1));
+      dot.style.background = `rgb(${dc[0]},${dc[1]},${dc[2]})`;
+    }
+    dotsWrap.appendChild(dot);
+  }
+  if (lvl > MAX_DOTS) {
+    const extra = document.createElement('span');
+    extra.className = 'intro-dots-extra';
+    extra.textContent = `+${lvl - MAX_DOTS}`;
+    dotsWrap.appendChild(extra);
+  }
+}
+
+// ───────────────────────────────────────────────────────
+// CONSTRUCTION STATE
 // ───────────────────────────────────────────────────────
 
 const state = {
   running: false,
   paused: false,
   done: false,
-
   theme: DARK,
-
   level: 3,
   pointCount: 4,
-
-  // Construction
   origin: [0, 0],
   baseRadius: 140,
   outer: [],
-  doneCircles: [],   // {center, radius, depth}
-  donePoints: [],    // [x, y, alpha, depth]
-  animCircle: null,  // {center, radius, depth, startAngle, t}
+  doneCircles: [],
+  donePoints: [],
+  animCircle: null,
   animT: 0,
-
-  // Step sequencer
   steps: [],
   stepIdx: 0,
   stepTimer: null,
-  pausedTime: 0,
-
-  // Pan
   panning: false,
   panStart: null,
 };
@@ -332,103 +501,65 @@ function buildSteps() {
   const N = state.pointCount;
   const outer = cardinalPoints(A, R, N);
   state.outer = outer;
-
-  const PAUSE = 0.06;
-  const STAGE = 0.28;
-
-  // ── Level 1 ──────────────────────────────
+  const PAUSE = 0.06, STAGE = 0.28;
 
   steps.push({ type: 'render' });
   steps.push({ type: 'pause', dur: 0.3 });
-
-  // Base circle
   steps.push({ type: 'arc', center: A, radius: R, depth: 0, from: outer[0], dur: 0.3 });
-
   steps.push({ type: 'pause', dur: STAGE });
-
-  // Fade in center + outer points
   steps.push({ type: 'fadePts', pts: [A, ...outer], depth: 0, stagger: 0.07 });
-
   steps.push({ type: 'pause', dur: STAGE });
-
-  // A→each point circles
   for (const pt of outer) {
     const c = circleFromPoints(A, pt);
     steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: A, dur: 0.3 });
     steps.push({ type: 'pause', dur: PAUSE });
   }
-
   steps.push({ type: 'pause', dur: STAGE });
-
-  // All pairs of outer points
-  const pairs = allPairs(outer);
-  for (const [p1, p2] of pairs) {
+  for (const [p1, p2] of allPairs(outer)) {
     const c = circleFromPoints(p1, p2);
     steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: p1, dur: 0.3 });
   }
-
   steps.push({ type: 'pause', dur: STAGE });
-
-  if (state.level === 1) {
-    steps.push({ type: 'done' });
-    return steps;
-  }
-
-  // ── Level 2 ──────────────────────────────
+  if (state.level === 1) { steps.push({ type: 'done' }); return steps; }
 
   const R1 = farthestExtent(A, state.doneCircles);
   steps.push({ type: 'arc', center: A, radius: R1, depth: 1, from: null, dur: 0.3 });
   steps.push({ type: 'pause', dur: STAGE });
-
   const innerMids = outer.map(pt => midpoint(A, pt));
   const projected1 = projectOntoRing(innerMids, A, R1);
   steps.push({ type: 'fadePts', pts: projected1, depth: 1, stagger: 0.07 });
   steps.push({ type: 'pause', dur: STAGE });
-
   const allPts1 = [A, ...projected1, ...outer];
   for (const [p1, p2] of allPairs(allPts1)) {
     const c = circleFromPoints(p1, p2);
     steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 1, from: p1, dur: 0.3 });
   }
   steps.push({ type: 'pause', dur: STAGE });
-
   const R2 = farthestExtent(A, state.doneCircles);
   steps.push({ type: 'arc', center: A, radius: R2, depth: 1, from: null, dur: 0.3 });
   steps.push({ type: 'pause', dur: STAGE });
-
-  if (state.level === 2) {
-    steps.push({ type: 'done' });
-    return steps;
-  }
-
-  // ── Level 3+ ─────────────────────────────
+  if (state.level === 2) { steps.push({ type: 'done' }); return steps; }
 
   let currentRingRadius = R2;
   let currentPoints = [...allPts1];
   const maxDepthVal = state.level - 1;
-
   for (let lvl = 3; lvl <= state.level; lvl++) {
     const dep = (lvl - 1) / maxDepthVal;
-
     let newProj = projectOntoRing(currentPoints, A, currentRingRadius);
     newProj = deduplicate(newProj, 1);
-
     const stagger = Math.max(0.005, 0.06 / (lvl - 1));
     steps.push({ type: 'fadePts', pts: newProj, depth: dep, stagger });
     steps.push({ type: 'pause', dur: STAGE });
-
     currentPoints = [...currentPoints, ...newProj];
     for (const [p1, p2] of allPairs(currentPoints)) {
       const c = circleFromPoints(p1, p2);
       steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: dep, from: p1, dur: 0.3 });
     }
     steps.push({ type: 'pause', dur: STAGE });
-
     currentRingRadius = farthestExtent(A, state.doneCircles);
     steps.push({ type: 'arc', center: A, radius: currentRingRadius, depth: dep, from: null, dur: 0.3 });
     steps.push({ type: 'pause', dur: STAGE });
   }
-
   steps.push({ type: 'done' });
   return steps;
 }
@@ -437,32 +568,25 @@ function buildSteps() {
 // DRAWING
 // ───────────────────────────────────────────────────────
 
-function drawCircle(center, radius, color, lineWidth = 1) {
+function drawCircle(center, radius, color) {
   const [sx, sy] = camera.w2s(center);
   const sr = camera.r2s(radius);
   if (sr < 1) return;
-  ctx.beginPath();
-  ctx.arc(sx, sy, sr, 0, TAU);
+  ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU);
   ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
   ctx.stroke();
 }
-
-function drawArc(center, radius, startAngle, sweep, color, lineWidth = 1) {
+function drawArc(center, radius, startAngle, sweep, color) {
   const [sx, sy] = camera.w2s(center);
   const sr = camera.r2s(radius);
   if (sr < 1 || sweep <= 0) return;
-  ctx.beginPath();
-  ctx.arc(sx, sy, sr, startAngle, startAngle + TAU * sweep);
+  ctx.beginPath(); ctx.arc(sx, sy, sr, startAngle, startAngle + TAU * sweep);
   ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
   ctx.stroke();
 }
-
 function drawDot(pt, color, r = 5) {
   const [sx, sy] = camera.w2s(pt);
-  ctx.beginPath();
-  ctx.arc(sx, sy, r, 0, TAU);
+  ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU);
   ctx.fillStyle = color;
   ctx.fill();
 }
@@ -471,37 +595,22 @@ function render() {
   const th = state.theme;
   ctx.fillStyle = th.bg;
   ctx.fillRect(0, 0, W, H);
-
   const maxDepth = state.doneCircles.length
-    ? Math.max(...state.doneCircles.map(c => c.depth), 1)
-    : 1;
-
-  // Completed circles
+    ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
   for (const c of state.doneCircles) {
     const alpha = Math.round(220 - c.depth * 100);
-    const col = depthColor(th, c.depth / maxDepth, Math.max(60, alpha));
-    drawCircle(c.center, c.radius, col);
+    drawCircle(c.center, c.radius, depthColor(th, c.depth / maxDepth, Math.max(60, alpha)));
   }
-
-  // Animating arc
   if (state.animCircle && state.animT > 0) {
     const ac = state.animCircle;
-    const col = depthColor(th, ac.depth / Math.max(maxDepth, 1));
-    drawArc(ac.center, ac.radius, ac.startAngle, state.animT, col);
+    drawArc(ac.center, ac.radius, ac.startAngle, state.animT,
+            depthColor(th, ac.depth / Math.max(maxDepth, 1)));
   }
-
-  // Points
   for (const p of state.donePoints) {
-    const col = pointColor(th, p[3] / Math.max(maxDepth, 1), p[2]);
-    drawDot([p[0], p[1]], col);
+    drawDot([p[0], p[1]], pointColor(th, p[3] / Math.max(maxDepth, 1), p[2]));
   }
-
-  // HUD
-  const zoomPct = (camera.zoom * 100).toFixed(0);
-  document.getElementById('hud').innerHTML =
-    `LEVEL <span class="hl">${state.level}</span> &nbsp; ` +
-    `PTS <span class="hl">${state.pointCount}</span><br>` +
-    `zoom <span class="hl">${zoomPct}%</span>`;
+  document.getElementById('zoom-display').innerHTML =
+    `zoom <span class="hl">${(camera.zoom*100).toFixed(0)}%</span>`;
 }
 
 // ───────────────────────────────────────────────────────
@@ -511,7 +620,7 @@ function render() {
 let animFrameId = null;
 let autoZoomPending = false;
 
-function startAnimation() {
+function startConstruction() {
   state.running = true;
   state.paused = false;
   state.done = false;
@@ -522,23 +631,23 @@ function startAnimation() {
   state.stepIdx = 0;
   camera.panX = 0;
   camera.panY = 0;
-
-  const r = farthestExtent(state.origin, [
-    { center: state.origin, radius: state.baseRadius }
-  ]);
+  const r = farthestExtent(state.origin, [{ center: state.origin, radius: state.baseRadius }]);
   camera.fitRadius(r * 2, 0.85);
 
-  state.steps = buildSteps();
-  document.getElementById('pause-btn').disabled = false;
-  document.getElementById('restart-btn').disabled = true;
+  bg.stop();
+  document.getElementById('intro').style.display = 'none';
   document.getElementById('start-btn').textContent = '■ STOP';
+  document.getElementById('start-btn').classList.remove('prim');
+  document.getElementById('pause-btn').style.display = '';
+  document.getElementById('restart-btn').style.display = 'none';
   document.getElementById('level-slider').disabled = true;
   document.getElementById('pts-slider').disabled = true;
 
+  state.steps = buildSteps();
   runStep();
 }
 
-function stopAnimation() {
+function stopConstruction() {
   state.running = false;
   state.paused = false;
   if (state.stepTimer) { clearTimeout(state.stepTimer); state.stepTimer = null; }
@@ -549,9 +658,10 @@ function complete() {
   state.done = true;
   state.running = false;
   state.animCircle = null;
-  document.getElementById('pause-btn').disabled = true;
-  document.getElementById('restart-btn').disabled = false;
-  document.getElementById('start-btn').textContent = '▶ START';
+  document.getElementById('start-btn').textContent = '↺ RESTART';
+  document.getElementById('start-btn').classList.add('prim');
+  document.getElementById('pause-btn').style.display = 'none';
+  document.getElementById('restart-btn').style.display = '';
   document.getElementById('level-slider').disabled = false;
   document.getElementById('pts-slider').disabled = false;
   render();
@@ -560,27 +670,12 @@ function complete() {
 
 function runStep() {
   if (!state.running || state.paused) return;
-
-  const steps = state.steps;
-  if (state.stepIdx >= steps.length) {
-    complete();
-    render();
-    return;
-  }
-
-  const step = steps[state.stepIdx];
-  state.stepIdx++;
+  if (state.stepIdx >= state.steps.length) { complete(); render(); return; }
+  const step = state.steps[state.stepIdx++];
 
   switch (step.type) {
-
-    case 'render':
-      render();
-      scheduleNext(0);
-      break;
-
-    case 'pause':
-      scheduleNext(step.dur * 1000);
-      break;
+    case 'render': render(); scheduleNext(0); break;
+    case 'pause': scheduleNext(step.dur * 1000); break;
 
     case 'arc': {
       const { center, radius, depth, from, dur } = step;
@@ -588,16 +683,13 @@ function runStep() {
       state.animCircle = { center, radius, depth, startAngle };
       state.animT = 0;
       const t0 = performance.now();
-
-      function tickArc() {
+      (function tick() {
         if (!state.running || state.paused) return;
-        const elapsed = (performance.now() - t0) / 1000;
-        const raw = Math.min(elapsed / dur, 1);
+        const raw = Math.min((performance.now() - t0) / 1000 / dur, 1);
         state.animT = easeInOut(raw);
         render();
-        if (raw < 1) {
-          animFrameId = requestAnimationFrame(tickArc);
-        } else {
+        if (raw < 1) { animFrameId = requestAnimationFrame(tick); }
+        else {
           state.animT = 1;
           state.doneCircles.push({ center, radius, depth });
           state.animCircle = null;
@@ -606,25 +698,20 @@ function runStep() {
           render();
           scheduleNext(0);
         }
-      }
-      animFrameId = requestAnimationFrame(tickArc);
+      })();
       break;
     }
 
     case 'fadePts': {
       const { pts, depth, stagger } = step;
       const baseIdx = state.donePoints.length;
-      for (const pt of pts) {
-        state.donePoints.push([pt[0], pt[1], 0, depth]);
-      }
+      for (const pt of pts) state.donePoints.push([pt[0], pt[1], 0, depth]);
       const n = pts.length;
       const timers = pts.map((_, i) => -(i * stagger));
       const flags = pts.map(() => false);
-      const dur = 0.38;
-      const t0 = performance.now();
-      let lastT = t0;
-
-      function tickFade() {
+      const fadeDur = 0.38;
+      let lastT = performance.now();
+      (function tick() {
         if (!state.running) return;
         const now = performance.now();
         const dt = state.paused ? 0 : (now - lastT);
@@ -634,24 +721,18 @@ function runStep() {
           if (flags[i]) continue;
           timers[i] += dt / 1000;
           if (timers[i] < 0) { allDone = false; continue; }
-          const raw = Math.min(timers[i] / dur, 1);
+          const raw = Math.min(timers[i] / fadeDur, 1);
           state.donePoints[baseIdx + i][2] = Math.round(easeInOut(raw) * 255);
           if (raw < 1) allDone = false; else flags[i] = true;
         }
         render();
-        if (!allDone) {
-          animFrameId = requestAnimationFrame(tickFade);
-        } else {
-          scheduleNext(0);
-        }
-      }
-      animFrameId = requestAnimationFrame(tickFade);
+        if (!allDone) animFrameId = requestAnimationFrame(tick);
+        else scheduleNext(0);
+      })();
       break;
     }
 
-    case 'done':
-      complete();
-      break;
+    case 'done': complete(); break;
   }
 }
 
@@ -662,11 +743,7 @@ function scheduleNext(ms) {
     if (extent > 0) camera.fitRadius(extent, 0.88);
     autoZoomPending = false;
   }
-  if (ms > 0) {
-    state.stepTimer = setTimeout(() => { state.stepTimer = null; runStep(); }, ms);
-  } else {
-    state.stepTimer = setTimeout(() => { state.stepTimer = null; runStep(); }, 16);
-  }
+  state.stepTimer = setTimeout(() => { state.stepTimer = null; runStep(); }, ms || 16);
 }
 
 // ───────────────────────────────────────────────────────
@@ -685,66 +762,101 @@ const themeBtn    = document.getElementById('theme-btn');
 levelSlider.addEventListener('input', () => {
   state.level = +levelSlider.value;
   levelVal.textContent = state.level;
-  if (!state.running) drawPreview();
+  updateIntro();
 });
-
 ptsSlider.addEventListener('input', () => {
   state.pointCount = +ptsSlider.value;
   ptsVal.textContent = state.pointCount;
-  if (!state.running) drawPreview();
+  updateIntro();
 });
 
 startBtn.addEventListener('click', () => {
-  if (state.running) {
-    stopAnimation();
-    state.running = false;
-    startBtn.textContent = '▶ START';
-    pauseBtn.disabled = true;
-    restartBtn.disabled = false;
-    levelSlider.disabled = false;
-    ptsSlider.disabled = false;
-    return;
-  }
-  startAnimation();
+  if (state.running) { stopConstruction(); resetUI(); return; }
+  if (state.done) { resetUI(); return; }
+  startConstruction();
 });
 
 pauseBtn.addEventListener('click', () => {
   state.paused = !state.paused;
   pauseBtn.textContent = state.paused ? '▶ PLAY' : '▐▐ PAUSE';
   if (!state.paused) {
-    // Resume step execution
     const anyActive = state.animCircle && state.animT > 0 && state.animT < 1;
     if (!anyActive) runStep();
   }
 });
 
-restartBtn.addEventListener('click', () => {
-  stopAnimation();
+restartBtn.addEventListener('click', resetUI);
+
+function resetUI() {
+  stopConstruction();
   state.done = false;
+  state.running = false;
   state.doneCircles = [];
   state.donePoints = [];
   state.animCircle = null;
   state.animT = 0;
-  restartBtn.disabled = true;
-  startBtn.textContent = '▶ START';
-  levelSlider.disabled = false;
-  ptsSlider.disabled = false;
-  drawPreview();
-});
+  document.getElementById('intro').style.display = '';
+  document.getElementById('start-btn').textContent = '▶ START';
+  document.getElementById('start-btn').classList.add('prim');
+  document.getElementById('pause-btn').style.display = 'none';
+  document.getElementById('pause-btn').disabled = true;
+  document.getElementById('restart-btn').style.display = 'none';
+  document.getElementById('restart-btn').disabled = true;
+  document.getElementById('level-slider').disabled = false;
+  document.getElementById('pts-slider').disabled = false;
+  bg.start();
+}
 
 themeBtn.addEventListener('click', () => {
   state.theme = state.theme === DARK ? LIGHT : DARK;
   themeBtn.textContent = `[B] ${state.theme.label}`;
   document.body.classList.toggle('light', state.theme === LIGHT);
-  document.getElementById('ui').classList.toggle('light', state.theme === LIGHT);
-  render();
+  if (!state.running && !state.done) {
+    // update intro colors on theme change by reseting
+  }
 });
 
 document.addEventListener('keydown', e => {
   if (e.key === 'b' || e.key === 'B') themeBtn.click();
   if (e.key === 'p' || e.key === 'P') pauseBtn.click();
-  if (e.key === 'Enter') startBtn.click();
-  if (e.key === 'r' || e.key === 'R') restartBtn.click();
+  if (e.key === 'Enter' && !state.running) startBtn.click();
+
+  // Intro keyboard controls (only when not running)
+  if (!state.running && !state.done) {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      state.level = Math.min(99, state.level + 1);
+      levelSlider.value = state.level;
+      levelVal.textContent = state.level;
+      updateIntro();
+    }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      state.level = Math.max(1, state.level - 1);
+      levelSlider.value = state.level;
+      levelVal.textContent = state.level;
+      updateIntro();
+    }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      state.pointCount = Math.min(24, state.pointCount + 1);
+      ptsSlider.value = state.pointCount;
+      ptsVal.textContent = state.pointCount;
+      updateIntro();
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      state.pointCount = Math.max(2, state.pointCount - 1);
+      ptsSlider.value = state.pointCount;
+      ptsVal.textContent = state.pointCount;
+      updateIntro();
+    }
+
+    // Digit typing
+    if (e.key >= '0' && e.key <= '9') {
+      // simple: just set level directly from digit
+      state.level = Math.max(1, Math.min(99, parseInt(e.key)));
+      levelSlider.value = state.level;
+      levelVal.textContent = state.level;
+      updateIntro();
+    }
+  }
 });
 
 // ───────────────────────────────────────────────────────
@@ -758,82 +870,30 @@ canvas.addEventListener('wheel', e => {
 }, { passive: false });
 
 canvas.addEventListener('mousedown', e => {
-  if (e.button === 0) {
+  if (e.button === 0 && state.running) {
     state.panning = true;
     state.panStart = { x: e.clientX, y: e.clientY, px: camera.panX, py: camera.panY };
     canvas.style.cursor = 'grabbing';
   }
 });
-
 window.addEventListener('mousemove', e => {
   if (state.panning) {
-    const dx = e.clientX - state.panStart.x;
-    const dy = e.clientY - state.panStart.y;
-    camera.panX = state.panStart.px + dx;
-    camera.panY = state.panStart.py + dy;
+    camera.panX = state.panStart.px + e.clientX - state.panStart.x;
+    camera.panY = state.panStart.py + e.clientY - state.panStart.y;
     render();
   }
 });
-
 window.addEventListener('mouseup', () => {
-  if (state.panning) {
-    state.panning = false;
-    canvas.style.cursor = '';
-  }
+  if (state.panning) { state.panning = false; canvas.style.cursor = ''; }
 });
-
-// ───────────────────────────────────────────────────────
-// PREVIEW (idle state)
-// ───────────────────────────────────────────────────────
-
-function drawPreview() {
-  state.doneCircles = [];
-  state.donePoints = [];
-  state.animCircle = null;
-  state.animT = 0;
-
-  const A = state.origin;
-  const R = state.baseRadius;
-  const N = state.pointCount;
-  const outer = cardinalPoints(A, R, N);
-
-  const extent = farthestExtent(A, [{ center: A, radius: R }]);
-  camera.fitRadius(extent * 1.5, 0.85);
-  camera.panX = 0;
-  camera.panY = 0;
-
-  // Draw base ring
-  state.doneCircles.push({ center: A, radius: R, depth: 0 });
-
-  // Draw outer points
-  for (const pt of outer) {
-    state.donePoints.push([pt[0], pt[1], 200, 0]);
-  }
-  state.donePoints.push([A[0], A[1], 220, 0]);
-
-  // Draw A→point circles (a subset for preview)
-  for (let i = 0; i < Math.min(N, 4); i++) {
-    const c = circleFromPoints(A, outer[i]);
-    state.doneCircles.push({ center: c.center, radius: c.radius, depth: 0 });
-  }
-
-  // Draw a few pair circles
-  const pairs = allPairs(outer);
-  for (let i = 0; i < Math.min(pairs.length, 6); i++) {
-    const c = circleFromPoints(pairs[i][0], pairs[i][1]);
-    state.doneCircles.push({ center: c.center, radius: c.radius, depth: 0 });
-  }
-
-  render();
-}
 
 // ───────────────────────────────────────────────────────
 // INIT
 // ───────────────────────────────────────────────────────
 
 resize();
-drawPreview();
-
+updateIntro();
+bg.start();
 </script>
 </body>
 </html>
