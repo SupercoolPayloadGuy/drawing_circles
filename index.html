@@ -261,7 +261,12 @@ function depthColor(theme, depth01, baseAlpha = 220) {
 function pointColor(theme, depth01, alpha = 255) {
   const t = Math.max(0, Math.min(1, depth01));
   const [r, g, b] = interpStops(theme.pointStops, t);
+<<<<<<< HEAD
   return `rgba(${r},${g},${b},${alpha / 255})`;
+=======
+  const s = alpha / 255;
+  return `rgb(${Math.round(r*s)},${Math.round(g*s)},${Math.round(b*s)})`;
+>>>>>>> 1cc9304 (fixed all the errors)
 }
 
 // ───────────────────────────────────────────────────────
@@ -425,6 +430,14 @@ const barFill   = document.getElementById('barFill');
 const dotsWrap  = document.getElementById('dotsWrap');
 
 function updateIntro() {
+<<<<<<< HEAD
+=======
+  // Flush digit buffer on timeout
+  if (state._digitBuf && performance.now() - state._digitTs > state._DIGIT_TIMEOUT) {
+    state._digitBuf = '';
+  }
+
+>>>>>>> 1cc9304 (fixed all the errors)
   const lvl  = state.level;
   const pts  = state.pointCount;
   const depT = Math.min(1, (lvl - 1) / 8);
@@ -439,6 +452,14 @@ function updateIntro() {
 
   ptsLineEl.innerHTML = `POINTS: <span class="hl" style="color:rgb(${col[0]},${col[1]},${col[2]})">${pts}</span>  [← →] or [A D]`;
 
+<<<<<<< HEAD
+=======
+  // digit buffer indicator
+  typeLine.innerHTML = state._digitBuf
+    ? `<span class="act">typing: ${state._digitBuf}_</span>`
+    : 'or type a number directly';
+
+>>>>>>> 1cc9304 (fixed all the errors)
   // progress bar
   const pct = Math.min(100, ((lvl - 1) / 8) * 100);
   barFill.style.width = pct + '%';
@@ -488,6 +509,15 @@ const state = {
   stepTimer: null,
   panning: false,
   panStart: null,
+<<<<<<< HEAD
+=======
+  _extent: 0,
+  _projPts: [],
+  _allPts: [],
+  _digitBuf: '',
+  _digitTs: 0,
+  _DIGIT_TIMEOUT: 1200,
+>>>>>>> 1cc9304 (fixed all the errors)
 };
 
 // ───────────────────────────────────────────────────────
@@ -522,6 +552,7 @@ function buildSteps() {
   steps.push({ type: 'pause', dur: STAGE });
   if (state.level === 1) { steps.push({ type: 'done' }); return steps; }
 
+<<<<<<< HEAD
   const R1 = farthestExtent(A, state.doneCircles);
   steps.push({ type: 'arc', center: A, radius: R1, depth: 1, from: null, dur: 0.3 });
   steps.push({ type: 'pause', dur: STAGE });
@@ -558,6 +589,33 @@ function buildSteps() {
     steps.push({ type: 'pause', dur: STAGE });
     currentRingRadius = farthestExtent(A, state.doneCircles);
     steps.push({ type: 'arc', center: A, radius: currentRingRadius, depth: dep, from: null, dur: 0.3 });
+=======
+  // Level 2 — extents computed at runtime via step types
+  steps.push({ type: 'calcExtent' });
+  steps.push({ type: 'ringArc', depth: 1, dur: 0.3 });
+  steps.push({ type: 'pause', dur: STAGE });
+  steps.push({ type: 'lvl2ProjFade', depth: 1, stagger: 0.07 });
+  steps.push({ type: 'pause', dur: STAGE });
+  steps.push({ type: 'genPairs', depth: 1 });
+  steps.push({ type: 'pause', dur: STAGE });
+  steps.push({ type: 'calcExtent' });
+  steps.push({ type: 'ringArc', depth: 1, dur: 0.3 });
+  steps.push({ type: 'pause', dur: STAGE });
+  if (state.level === 2) { steps.push({ type: 'done' }); return steps; }
+
+  // Level 3+
+  const maxDepthVal = state.level - 1;
+  for (let lvl = 3; lvl <= state.level; lvl++) {
+    const dep = (lvl - 1) / maxDepthVal;
+    const stagger = Math.max(0.005, 0.06 / (lvl - 1));
+    steps.push({ type: 'calcExtent' });
+    steps.push({ type: 'projAndFade', depth: dep, stagger });
+    steps.push({ type: 'pause', dur: STAGE });
+    steps.push({ type: 'genPairs', depth: dep });
+    steps.push({ type: 'pause', dur: STAGE });
+    steps.push({ type: 'calcExtent' });
+    steps.push({ type: 'ringArc', depth: dep, dur: 0.3 });
+>>>>>>> 1cc9304 (fixed all the errors)
     steps.push({ type: 'pause', dur: STAGE });
   }
   steps.push({ type: 'done' });
@@ -732,6 +790,127 @@ function runStep() {
       break;
     }
 
+<<<<<<< HEAD
+=======
+    case 'calcExtent':
+      state._extent = farthestExtent(state.origin, state.doneCircles);
+      scheduleNext(0);
+      break;
+
+    case 'ringArc': {
+      const radius = state._extent;
+      if (radius < 1) { scheduleNext(0); break; }
+      const { depth, dur } = step;
+      const center = state.origin;
+      const startAngle = -HALF_PI;
+      state.animCircle = { center, radius, depth, startAngle };
+      state.animT = 0;
+      const t0 = performance.now();
+      (function tick() {
+        if (!state.running || state.paused) return;
+        const raw = Math.min((performance.now() - t0) / 1000 / dur, 1);
+        state.animT = easeInOut(raw);
+        render();
+        if (raw < 1) { animFrameId = requestAnimationFrame(tick); }
+        else {
+          state.animT = 1;
+          state.doneCircles.push({ center, radius, depth });
+          state.animCircle = null;
+          state.animT = 0;
+          autoZoomPending = true;
+          render();
+          scheduleNext(0);
+        }
+      })();
+      break;
+    }
+
+    case 'lvl2ProjFade': {
+      const { depth, stagger } = step;
+      const outer = state.outer;
+      const innerMids = outer.map(pt => midpoint(state.origin, pt));
+      const projected = projectOntoRing(innerMids, state.origin, state._extent);
+      const deDuped = deduplicate(projected, 1);
+      state._projPts = deDuped;
+      state._allPts = [state.origin, ...deDuped, ...outer];
+      const baseIdx = state.donePoints.length;
+      for (const pt of deDuped) state.donePoints.push([pt[0], pt[1], 0, depth]);
+      const n = deDuped.length;
+      const timers = deDuped.map((_, i) => -(i * stagger));
+      const flags = deDuped.map(() => false);
+      const fadeDur = 0.38;
+      let lastT = performance.now();
+      (function tick() {
+        if (!state.running) return;
+        const now = performance.now();
+        const dt = state.paused ? 0 : (now - lastT);
+        lastT = now;
+        let allDone = true;
+        for (let i = 0; i < n; i++) {
+          if (flags[i]) continue;
+          timers[i] += dt / 1000;
+          if (timers[i] < 0) { allDone = false; continue; }
+          const raw = Math.min(timers[i] / fadeDur, 1);
+          state.donePoints[baseIdx + i][2] = Math.round(easeInOut(raw) * 255);
+          if (raw < 1) allDone = false; else flags[i] = true;
+        }
+        render();
+        if (!allDone) animFrameId = requestAnimationFrame(tick);
+        else scheduleNext(0);
+      })();
+      break;
+    }
+
+    case 'projAndFade': {
+      const { depth, stagger } = step;
+      const source = state._allPts;
+      const projected = projectOntoRing(source, state.origin, state._extent);
+      const deDuped = deduplicate(projected, 1);
+      state._projPts = deDuped;
+      state._allPts = [...state._allPts, ...deDuped];
+      const baseIdx = state.donePoints.length;
+      for (const pt of deDuped) state.donePoints.push([pt[0], pt[1], 0, depth]);
+      const n = deDuped.length;
+      const timers = deDuped.map((_, i) => -(i * stagger));
+      const flags = deDuped.map(() => false);
+      const fadeDur = 0.38;
+      let lastT = performance.now();
+      (function tick() {
+        if (!state.running) return;
+        const now = performance.now();
+        const dt = state.paused ? 0 : (now - lastT);
+        lastT = now;
+        let allDone = true;
+        for (let i = 0; i < n; i++) {
+          if (flags[i]) continue;
+          timers[i] += dt / 1000;
+          if (timers[i] < 0) { allDone = false; continue; }
+          const raw = Math.min(timers[i] / fadeDur, 1);
+          state.donePoints[baseIdx + i][2] = Math.round(easeInOut(raw) * 255);
+          if (raw < 1) allDone = false; else flags[i] = true;
+        }
+        render();
+        if (!allDone) animFrameId = requestAnimationFrame(tick);
+        else scheduleNext(0);
+      })();
+      break;
+    }
+
+    case 'genPairs': {
+      const { depth } = step;
+      const pts = state._allPts;
+      const pairs = allPairs(pts);
+      const pairSteps = [];
+      for (const [p1, p2] of pairs) {
+        const c = circleFromPoints(p1, p2);
+        pairSteps.push({ type: 'arc', center: c.center, radius: c.radius, depth, from: p1, dur: 0.3 });
+      }
+      state.steps.splice(state.stepIdx, 0, ...pairSteps);
+      scheduleNext(0);
+      break;
+    }
+
+>>>>>>> 1cc9304 (fixed all the errors)
     case 'done': complete(); break;
   }
 }
@@ -795,6 +974,14 @@ function resetUI() {
   state.donePoints = [];
   state.animCircle = null;
   state.animT = 0;
+<<<<<<< HEAD
+=======
+  state._extent = 0;
+  state._projPts = [];
+  state._allPts = [];
+  state._digitBuf = '';
+  state._digitTs = 0;
+>>>>>>> 1cc9304 (fixed all the errors)
   document.getElementById('intro').style.display = '';
   document.getElementById('start-btn').textContent = '▶ START';
   document.getElementById('start-btn').classList.add('prim');
@@ -848,6 +1035,7 @@ document.addEventListener('keydown', e => {
       updateIntro();
     }
 
+<<<<<<< HEAD
     // Digit typing
     if (e.key >= '0' && e.key <= '9') {
       // simple: just set level directly from digit
@@ -855,6 +1043,34 @@ document.addEventListener('keydown', e => {
       levelSlider.value = state.level;
       levelVal.textContent = state.level;
       updateIntro();
+=======
+    // Digit typing (multi-digit with timeout)
+    if (e.key >= '0' && e.key <= '9') {
+      const now = performance.now();
+      if (now - state._digitTs > state._DIGIT_TIMEOUT) state._digitBuf = '';
+      state._digitBuf += e.key;
+      state._digitTs = now;
+      const val = parseInt(state._digitBuf);
+      if (val >= 1) {
+        state.level = Math.min(99, val);
+        levelSlider.value = state.level;
+        levelVal.textContent = state.level;
+        updateIntro();
+      }
+    }
+    if (e.key === 'Backspace') {
+      if (state._digitBuf) {
+        state._digitBuf = state._digitBuf.slice(0, -1);
+        const val = state._digitBuf ? parseInt(state._digitBuf) : 1;
+        state.level = Math.max(1, val);
+        levelSlider.value = state.level;
+        levelVal.textContent = state.level;
+        updateIntro();
+      }
+    }
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','W','s','S','a','A','d','D'].includes(e.key)) {
+      state._digitBuf = '';
+>>>>>>> 1cc9304 (fixed all the errors)
     }
   }
 });

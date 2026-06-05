@@ -268,7 +268,7 @@ class Renderer:
             sc  = cam.w2s(wc)
             # opacity also fades with depth: inner brighter, outer dimmer
             alpha = round(220 - dep * 100)
-            col   = depth_color(th, dep / max_depth, base_alpha=max(60, alpha))
+            col   = depth_color(th, dep / max(max_depth, 1.0), base_alpha=max(60, alpha))
             pygame.draw.circle(screen, col,
                                (round(sc[0]), round(sc[1])), sr, 1)
 
