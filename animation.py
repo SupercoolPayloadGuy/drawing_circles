@@ -48,8 +48,6 @@ class AnimState:
         self.renderer      = renderer
         self.clock         = clock
         self.draw_duration = draw_duration(level)
-        self.pause_between = 0.06
-        self.stage_pause   = 0.28
         self.point_fade    = 0.38
 
         # Same list objects as renderer — mutations are reflected immediately

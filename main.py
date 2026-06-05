@@ -2,7 +2,8 @@
 main.py — entry point.
 
 Run with:  python main.py
-(all files must be in the same directory)
+           python main.py --points 6
+           python main.py -p 8
 
 Controls during animation:
   P or pause button    — pause / resume
@@ -18,6 +19,7 @@ File layout:
   intro.py      ← animated level-select screen
 """
 
+import argparse
 import pygame
 
 from geometry  import (cardinal_points, circle_from_points, midpoint,
@@ -41,6 +43,16 @@ STAGE_PAUSE   = 0.28
 
 
 # ──────────────────────────────────────────────
+# CLI
+# ──────────────────────────────────────────────
+
+parser = argparse.ArgumentParser(description="Circle Construction")
+parser.add_argument("-p", "--points", type=int, default=0,
+                    help="Number of base points (overrides intro selection)")
+CLI_POINTS = parser.parse_args().points
+
+
+# ──────────────────────────────────────────────
 # INIT
 # ──────────────────────────────────────────────
 
@@ -53,9 +65,10 @@ clock  = pygame.time.Clock()
 # CONSTRUCTION  (wrapped in a function so restart works)
 # ──────────────────────────────────────────────
 
-def run_construction(level, screen, clock):
+def run_construction(level, screen, clock, point_count=4):
     """
-    Build the circle construction up to `level`.
+    Build the circle construction up to `level` using `point_count` base
+    points evenly spaced around the circle.
     Returns normally when finished.
     Raises RestartSignal if the user clicks Restart.
     """
@@ -65,7 +78,8 @@ def run_construction(level, screen, clock):
     renderer.animation_done = False
 
     pygame.display.set_caption(
-        f"Circle Construction  •  Level {level}  •  [P] pause  [B] theme  [scroll] zoom")
+        f"Circle Construction  •  Level {level}  •  {point_count} pts  •  "
+        f"[P] pause  [B] theme  [scroll] zoom")
 
     state = AnimState(renderer, clock, level)
     A     = WORLD_CENTER
@@ -91,41 +105,22 @@ def run_construction(level, screen, clock):
     renderer.redraw()
     wp(0.3)
 
-    outer = cardinal_points(A, BASE_RADIUS)
-    TOP, RIGHT, BOTTOM, LEFT = outer
+    outer = cardinal_points(A, BASE_RADIUS, count=point_count)
 
-    ac(A, BASE_RADIUS, depth=0.0, from_point=TOP)
+    ac(A, BASE_RADIUS, depth=0.0, from_point=outer[0])
     wp(STAGE_PAUSE)
 
     apf([A] + outer, depth=0.0, stagger=0.07)
     wp(STAGE_PAUSE)
 
-    for pt in [TOP, BOTTOM]:
-        c, r = circle_from_points(A, pt)
-        ac(c, r, depth=0.0, from_point=A)
-        wp(PAUSE_BETWEEN)
-
-    wp(PAUSE_BETWEEN)
-
-    for pt in [LEFT, RIGHT]:
+    for pt in outer:
         c, r = circle_from_points(A, pt)
         ac(c, r, depth=0.0, from_point=A)
         wp(PAUSE_BETWEEN)
 
     wp(STAGE_PAUSE)
 
-    pairs_l1 = [
-        (TOP, RIGHT), (BOTTOM, LEFT),
-        (TOP, LEFT),  (BOTTOM, RIGHT),
-        (TOP, BOTTOM),(LEFT,  RIGHT),
-    ]
-    for i in range(0, len(pairs_l1), 2):
-        for p1, p2 in pairs_l1[i:i+2]:
-            c, r = circle_from_points(p1, p2)
-            ac(c, r, depth=0.0, from_point=p1)
-            wp(PAUSE_BETWEEN)
-        wp(PAUSE_BETWEEN)
-
+    dap(outer, depth=0.0)
     wp(STAGE_PAUSE)
 
     if level == 1:
@@ -200,9 +195,11 @@ def _idle(state, renderer, clock):
 # ──────────────────────────────────────────────
 
 while True:
-    level = run_intro(screen, clock)
+    level, pts = run_intro(screen, clock)
+    if CLI_POINTS:
+        pts = CLI_POINTS
     try:
-        run_construction(level, screen, clock)
+        run_construction(level, screen, clock, point_count=pts)
     except RestartSignal:
         # Loop back to intro
         continue

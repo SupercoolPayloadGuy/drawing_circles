@@ -70,8 +70,6 @@ def point_color(theme, depth_01, alpha=255):
 # ──────────────────────────────────────────────
 
 class Camera:
-    ZOOM_MIN  = 0.01
-    ZOOM_MAX  = 60.0
     ZOOM_STEP = 1.15
 
     def __init__(self, screen_w, screen_h, world_center):
@@ -92,14 +90,13 @@ class Camera:
     def fit_radius(self, world_radius, margin=0.88):
         half   = min(self.sw, self.sh) / 2
         target = half * margin
-        self.zoom = max(self.ZOOM_MIN, min(self.ZOOM_MAX,
-                                           target / max(world_radius, 0.001)))
+        self.zoom = target / max(world_radius, 0.001)
 
     def scroll(self, direction):
         if direction > 0:
-            self.zoom = min(self.ZOOM_MAX, self.zoom * self.ZOOM_STEP)
+            self.zoom = self.zoom * self.ZOOM_STEP
         else:
-            self.zoom = max(self.ZOOM_MIN, self.zoom / self.ZOOM_STEP)
+            self.zoom = self.zoom / self.ZOOM_STEP
 
 
 # ──────────────────────────────────────────────
@@ -240,7 +237,8 @@ class Renderer:
         screen.fill(th["background"])
 
         # Completed circles — coloured by depth
-        max_depth = max((d for _, _, d in self.done_circles), default=1.0) or 1.0
+        depths = [d for _, _, d in self.done_circles]
+        max_depth = max(depths) if depths else 1.0
         for wc, wr, dep in self.done_circles:
             sr = round(cam.r2s(wr))
             if sr < 1:

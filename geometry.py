@@ -64,12 +64,13 @@ def deduplicate(points, snap=1):
 
 
 def all_pairs(points):
-    return list(itertools.combinations(points, 2))
+    return itertools.combinations(points, 2)
 
 
-def cardinal_points(center, radius):
-    """Return [TOP, RIGHT, BOTTOM, LEFT] on a circle."""
+def cardinal_points(center, radius, count=4):
+    """Return `count` points evenly spaced around a circle."""
     cx, cy = center
-    angles = [-math.pi / 2, 0, math.pi / 2, math.pi]
-    return [(cx + radius * math.cos(a), cy + radius * math.sin(a))
-            for a in angles]
+    start = -math.pi / 2
+    return [(cx + radius * math.cos(start + 2 * math.pi * i / count),
+             cy + radius * math.sin(start + 2 * math.pi * i / count))
+            for i in range(count)]

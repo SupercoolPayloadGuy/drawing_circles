@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Construction</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:monospace}
+body{display:flex;flex-direction:column;background:#0a0a0a;color:#ccc}
+
+#canvas-wrap{flex:1;position:relative;overflow:hidden}
+#canvas-wrap canvas{display:block;width:100%;height:100%}
+
+#ui{display:flex;align-items:center;gap:16px;padding:10px 20px;
+    background:#1a1a1a;border-top:1px solid #333;
+    flex-wrap:wrap;user-select:none}
+#ui label{font-size:13px;color:#888}
+#ui input[type=range]{width:80px;accent-color:#ffc832}
+#ui .val{font-size:13px;color:#ffc832;min-width:20px;text-align:center}
+#ui button{padding:6px 16px;font:13px monospace;background:#2a2a2a;
+           color:#ccc;border:1px solid #555;border-radius:6px;cursor:pointer}
+#ui button:hover{background:#3a3a3a;color:#ffc832;border-color:#ffc832}
+#ui button.prim{background:#ffc832;color:#111;border-color:#ffc832;font-weight:bold}
+#ui button.prim:hover{background:#ffd966}
+#ui .sep{width:1px;height:24px;background:#333}
+
+.hud{position:absolute;top:14px;left:14px;font:13px monospace;color:#888;
+     pointer-events:none;line-height:1.7}
+.hud .hl{color:#ffc832}
+#theme-btn{position:absolute;top:12px;right:12px;padding:5px 14px;
+           font:12px monospace;background:#191919;color:#b4b4b4;
+           border:1px solid #444;border-radius:6px;cursor:pointer}
+#theme-btn:hover{color:#ffc832;border-color:#ffc832}
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div class="hud" id="hud"></div>
+  <button id="theme-btn">[B] DARK</button>
+</div>
+
+<div id="ui">
+  <label>LEVEL</label>
+  <input type="range" id="level-slider" min="1" max="99" value="3">
+  <span class="val" id="level-val">3</span>
+
+  <div class="sep"></div>
+
+  <label>POINTS</label>
+  <input type="range" id="pts-slider" min="2" max="24" value="4">
+  <span class="val" id="pts-val">4</span>
+
+  <div class="sep"></div>
+
+  <button id="start-btn" class="prim">▶ START</button>
+  <button id="pause-btn" disabled>▐▐ PAUSE</button>
+  <button id="restart-btn" disabled>↺ RESTART</button>
+
+  <div class="sep"></div>
+
+  <span style="font:12px monospace;color:#555">
+    scroll to zoom &middot; drag to pan
+  </span>
+</div>
+
+<script>
+// ───────────────────────────────────────────────────────
+// GEOMETRY  (port of geometry.py)
+// ───────────────────────────────────────────────────────
+
+const HALF_PI = Math.PI / 2;
+const TAU     = 2 * Math.PI;
+
+function midpoint(a, b) {
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+function distance(a, b) {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function circleFromPoints(a, b) {
+  return { center: midpoint(a, b), radius: distance(a, b) / 2 };
+}
+
+function angleOnCircle(center, point) {
+  return Math.atan2(point[1] - center[1], point[0] - center[0]);
+}
+
+function farthestExtent(origin, circles) {
+  let best = 0;
+  for (const { center, radius } of circles) {
+    best = Math.max(best, distance(origin, center) + radius);
+  }
+  return best;
+}
+
+function projectOntoRing(points, origin, ringRadius) {
+  return points.map(p => {
+    const dx = p[0] - origin[0], dy = p[1] - origin[1];
+    const ang = Math.atan2(dy, dx);
+    return [origin[0] + ringRadius * Math.cos(ang),
+            origin[1] + ringRadius * Math.sin(ang)];
+  });
+}
+
+function deduplicate(points, snap = 1) {
+  const seen = new Set();
+  const out = [];
+  for (const p of points) {
+    const key = `${Math.round(p[0] / snap)},${Math.round(p[1] / snap)}`;
+    if (!seen.has(key)) { seen.add(key); out.push(p); }
+  }
+  return out;
+}
+
+function allPairs(points) {
+  const pairs = [];
+  for (let i = 0; i < points.length; i++)
+    for (let j = i + 1; j < points.length; j++)
+      pairs.push([points[i], points[j]]);
+  return pairs;
+}
+
+function cardinalPoints(center, radius, count = 4) {
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const a = -HALF_PI + TAU * i / count;
+    pts.push([center[0] + radius * Math.cos(a),
+              center[1] + radius * Math.sin(a)]);
+  }
+  return pts;
+}
+
+// ───────────────────────────────────────────────────────
+// EASING
+// ───────────────────────────────────────────────────────
+
+function easeInOut(t) {
+  return t * t * (3 - 2 * t);
+}
+
+// ───────────────────────────────────────────────────────
+// THEMES
+// ───────────────────────────────────────────────────────
+
+const DARK = {
+  bg:         '#0a0a0a',
+  uiBg:       '#1a1a1a',
+  toggleBg:   '#191919',
+  toggleFg:   '#b4b4b4',
+  hudFg:      '#888',
+  depthInner: [255, 200,  80],
+  depthOuter: [ 80, 160, 255],
+  ptInner:    [255, 220,  50],
+  ptOuter:    [100, 200, 255],
+  label:      'DARK',
+};
+
+const LIGHT = {
+  bg:         '#f5f5f0',
+  uiBg:       '#e8e8e0',
+  toggleBg:   '#dcdcd2',
+  toggleFg:   '#323232',
+  hudFg:      '#787878',
+  depthInner: [180,  80,  20],
+  depthOuter: [ 20,  80, 180],
+  ptInner:    [200,  60,  10],
+  ptOuter:    [ 20, 100, 200],
+  label:      'LIGHT',
+};
+
+function lerpColor(c1, c2, t) {
+  return [
+    Math.round(c1[0] + (c2[0] - c1[0]) * t),
+    Math.round(c1[1] + (c2[1] - c1[1]) * t),
+    Math.round(c1[2] + (c2[2] - c1[2]) * t),
+  ];
+}
+
+function depthColor(theme, depth01, baseAlpha = 220) {
+  const t  = Math.max(0, Math.min(1, depth01));
+  const [r, g, b] = lerpColor(theme.depthInner, theme.depthOuter, t);
+  const s  = baseAlpha / 255;
+  return `rgba(${Math.round(r*s)},${Math.round(g*s)},${Math.round(b*s)},1)`;
+}
+
+function pointColor(theme, depth01, alpha = 255) {
+  const t  = Math.max(0, Math.min(1, depth01));
+  const [r, g, b] = lerpColor(theme.ptInner, theme.ptOuter, t);
+  return `rgba(${r},${g},${b},${alpha / 255})`;
+}
+
+// ───────────────────────────────────────────────────────
+// CANVAS SETUP
+// ───────────────────────────────────────────────────────
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+
+let W, H, cx, cy;
+function resize() {
+  const rect = wrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  W = rect.width; H = rect.height;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2; cy = H / 2;
+}
+window.addEventListener('resize', resize);
+
+// ───────────────────────────────────────────────────────
+// CAMERA
+// ───────────────────────────────────────────────────────
+
+const camera = {
+  origin: [0, 0],
+  zoom: 1,
+  panX: 0, panY: 0,
+
+  w2s(pt) {
+    return [
+      (pt[0] - this.origin[0]) * this.zoom + cx + this.panX,
+      (pt[1] - this.origin[1]) * this.zoom + cy + this.panY,
+    ];
+  },
+
+  r2s(r) { return r * this.zoom; },
+
+  fitRadius(worldRadius, margin = 0.88) {
+    const half = Math.min(W, H) / 2;
+    this.zoom = half * margin / Math.max(worldRadius, 0.001);
+  },
+
+  scroll(dy) {
+    const step = 1.15;
+    this.zoom *= (dy > 0 ? step : 1 / step);
+  },
+};
+
+// ───────────────────────────────────────────────────────
+// STATE
+// ───────────────────────────────────────────────────────
+
+const state = {
+  running: false,
+  paused: false,
+  done: false,
+
+  theme: DARK,
+
+  level: 3,
+  pointCount: 4,
+
+  // Construction
+  origin: [0, 0],
+  baseRadius: 140,
+  outer: [],
+  doneCircles: [],   // {center, radius, depth}
+  donePoints: [],    // [x, y, alpha, depth]
+  animCircle: null,  // {center, radius, depth, startAngle, t}
+  animT: 0,
+
+  // Step sequencer
+  steps: [],
+  stepIdx: 0,
+  stepTimer: null,
+  pausedTime: 0,
+
+  // Pan
+  panning: false,
+  panStart: null,
+};
+
+// ───────────────────────────────────────────────────────
+// STEP SEQUENCER
+// ───────────────────────────────────────────────────────
+
+function buildSteps() {
+  const steps = [];
+  const A = state.origin;
+  const R = state.baseRadius;
+  const N = state.pointCount;
+  const outer = cardinalPoints(A, R, N);
+  state.outer = outer;
+
+  const PAUSE = 0.06;
+  const STAGE = 0.28;
+
+  // ── Level 1 ──────────────────────────────
+
+  steps.push({ type: 'render' });
+  steps.push({ type: 'pause', dur: 0.3 });
+
+  // Base circle
+  steps.push({ type: 'arc', center: A, radius: R, depth: 0, from: outer[0], dur: 0.3 });
+
+  steps.push({ type: 'pause', dur: STAGE });
+
+  // Fade in center + outer points
+  steps.push({ type: 'fadePts', pts: [A, ...outer], depth: 0, stagger: 0.07 });
+
+  steps.push({ type: 'pause', dur: STAGE });
+
+  // A→each point circles
+  for (const pt of outer) {
+    const c = circleFromPoints(A, pt);
+    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: A, dur: 0.3 });
+    steps.push({ type: 'pause', dur: PAUSE });
+  }
+
+  steps.push({ type: 'pause', dur: STAGE });
+
+  // All pairs of outer points
+  const pairs = allPairs(outer);
+  for (const [p1, p2] of pairs) {
+    const c = circleFromPoints(p1, p2);
+    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: p1, dur: 0.3 });
+  }
+
+  steps.push({ type: 'pause', dur: STAGE });
+
+  if (state.level === 1) {
+    steps.push({ type: 'done' });
+    return steps;
+  }
+
+  // ── Level 2 ──────────────────────────────
+
+  const R1 = farthestExtent(A, state.doneCircles);
+  steps.push({ type: 'arc', center: A, radius: R1, depth: 1, from: null, dur: 0.3 });
+  steps.push({ type: 'pause', dur: STAGE });
+
+  const innerMids = outer.map(pt => midpoint(A, pt));
+  const projected1 = projectOntoRing(innerMids, A, R1);
+  steps.push({ type: 'fadePts', pts: projected1, depth: 1, stagger: 0.07 });
+  steps.push({ type: 'pause', dur: STAGE });
+
+  const allPts1 = [A, ...projected1, ...outer];
+  for (const [p1, p2] of allPairs(allPts1)) {
+    const c = circleFromPoints(p1, p2);
+    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 1, from: p1, dur: 0.3 });
+  }
+  steps.push({ type: 'pause', dur: STAGE });
+
+  const R2 = farthestExtent(A, state.doneCircles);
+  steps.push({ type: 'arc', center: A, radius: R2, depth: 1, from: null, dur: 0.3 });
+  steps.push({ type: 'pause', dur: STAGE });
+
+  if (state.level === 2) {
+    steps.push({ type: 'done' });
+    return steps;
+  }
+
+  // ── Level 3+ ─────────────────────────────
+
+  let currentRingRadius = R2;
+  let currentPoints = [...allPts1];
+  const maxDepthVal = state.level - 1;
+
+  for (let lvl = 3; lvl <= state.level; lvl++) {
+    const dep = (lvl - 1) / maxDepthVal;
+
+    let newProj = projectOntoRing(currentPoints, A, currentRingRadius);
+    newProj = deduplicate(newProj, 1);
+
+    const stagger = Math.max(0.005, 0.06 / (lvl - 1));
+    steps.push({ type: 'fadePts', pts: newProj, depth: dep, stagger });
+    steps.push({ type: 'pause', dur: STAGE });
+
+    currentPoints = [...currentPoints, ...newProj];
+    for (const [p1, p2] of allPairs(currentPoints)) {
+      const c = circleFromPoints(p1, p2);
+      steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: dep, from: p1, dur: 0.3 });
+    }
+    steps.push({ type: 'pause', dur: STAGE });
+
+    currentRingRadius = farthestExtent(A, state.doneCircles);
+    steps.push({ type: 'arc', center: A, radius: currentRingRadius, depth: dep, from: null, dur: 0.3 });
+    steps.push({ type: 'pause', dur: STAGE });
+  }
+
+  steps.push({ type: 'done' });
+  return steps;
+}
+
+// ───────────────────────────────────────────────────────
+// DRAWING
+// ───────────────────────────────────────────────────────
+
+function drawCircle(center, radius, color, lineWidth = 1) {
+  const [sx, sy] = camera.w2s(center);
+  const sr = camera.r2s(radius);
+  if (sr < 1) return;
+  ctx.beginPath();
+  ctx.arc(sx, sy, sr, 0, TAU);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+function drawArc(center, radius, startAngle, sweep, color, lineWidth = 1) {
+  const [sx, sy] = camera.w2s(center);
+  const sr = camera.r2s(radius);
+  if (sr < 1 || sweep <= 0) return;
+  ctx.beginPath();
+  ctx.arc(sx, sy, sr, startAngle, startAngle + TAU * sweep);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+}
+
+function drawDot(pt, color, r = 5) {
+  const [sx, sy] = camera.w2s(pt);
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, TAU);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function render() {
+  const th = state.theme;
+  ctx.fillStyle = th.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const maxDepth = state.doneCircles.length
+    ? Math.max(...state.doneCircles.map(c => c.depth), 1)
+    : 1;
+
+  // Completed circles
+  for (const c of state.doneCircles) {
+    const alpha = Math.round(220 - c.depth * 100);
+    const col = depthColor(th, c.depth / maxDepth, Math.max(60, alpha));
+    drawCircle(c.center, c.radius, col);
+  }
+
+  // Animating arc
+  if (state.animCircle && state.animT > 0) {
+    const ac = state.animCircle;
+    const col = depthColor(th, ac.depth / Math.max(maxDepth, 1));
+    drawArc(ac.center, ac.radius, ac.startAngle, state.animT, col);
+  }
+
+  // Points
+  for (const p of state.donePoints) {
+    const col = pointColor(th, p[3] / Math.max(maxDepth, 1), p[2]);
+    drawDot([p[0], p[1]], col);
+  }
+
+  // HUD
+  const zoomPct = (camera.zoom * 100).toFixed(0);
+  document.getElementById('hud').innerHTML =
+    `LEVEL <span class="hl">${state.level}</span> &nbsp; ` +
+    `PTS <span class="hl">${state.pointCount}</span><br>` +
+    `zoom <span class="hl">${zoomPct}%</span>`;
+}
+
+// ───────────────────────────────────────────────────────
+// STEP EXECUTOR
+// ───────────────────────────────────────────────────────
+
+let animFrameId = null;
+let autoZoomPending = false;
+
+function startAnimation() {
+  state.running = true;
+  state.paused = false;
+  state.done = false;
+  state.doneCircles = [];
+  state.donePoints = [];
+  state.animCircle = null;
+  state.animT = 0;
+  state.stepIdx = 0;
+  camera.panX = 0;
+  camera.panY = 0;
+
+  const r = farthestExtent(state.origin, [
+    { center: state.origin, radius: state.baseRadius }
+  ]);
+  camera.fitRadius(r * 2, 0.85);
+
+  state.steps = buildSteps();
+  document.getElementById('pause-btn').disabled = false;
+  document.getElementById('restart-btn').disabled = true;
+  document.getElementById('start-btn').textContent = '■ STOP';
+  document.getElementById('level-slider').disabled = true;
+  document.getElementById('pts-slider').disabled = true;
+
+  runStep();
+}
+
+function stopAnimation() {
+  state.running = false;
+  state.paused = false;
+  if (state.stepTimer) { clearTimeout(state.stepTimer); state.stepTimer = null; }
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+}
+
+function complete() {
+  state.done = true;
+  state.running = false;
+  state.animCircle = null;
+  document.getElementById('pause-btn').disabled = true;
+  document.getElementById('restart-btn').disabled = false;
+  document.getElementById('start-btn').textContent = '▶ START';
+  document.getElementById('level-slider').disabled = false;
+  document.getElementById('pts-slider').disabled = false;
+  render();
+  animFrameId = requestAnimationFrame(render);
+}
+
+function runStep() {
+  if (!state.running || state.paused) return;
+
+  const steps = state.steps;
+  if (state.stepIdx >= steps.length) {
+    complete();
+    render();
+    return;
+  }
+
+  const step = steps[state.stepIdx];
+  state.stepIdx++;
+
+  switch (step.type) {
+
+    case 'render':
+      render();
+      scheduleNext(0);
+      break;
+
+    case 'pause':
+      scheduleNext(step.dur * 1000);
+      break;
+
+    case 'arc': {
+      const { center, radius, depth, from, dur } = step;
+      const startAngle = from != null ? angleOnCircle(center, from) : -HALF_PI;
+      state.animCircle = { center, radius, depth, startAngle };
+      state.animT = 0;
+      const t0 = performance.now();
+
+      function tickArc() {
+        if (!state.running || state.paused) return;
+        const elapsed = (performance.now() - t0) / 1000;
+        const raw = Math.min(elapsed / dur, 1);
+        state.animT = easeInOut(raw);
+        render();
+        if (raw < 1) {
+          animFrameId = requestAnimationFrame(tickArc);
+        } else {
+          state.animT = 1;
+          state.doneCircles.push({ center, radius, depth });
+          state.animCircle = null;
+          state.animT = 0;
+          autoZoomPending = true;
+          render();
+          scheduleNext(0);
+        }
+      }
+      animFrameId = requestAnimationFrame(tickArc);
+      break;
+    }
+
+    case 'fadePts': {
+      const { pts, depth, stagger } = step;
+      const baseIdx = state.donePoints.length;
+      for (const pt of pts) {
+        state.donePoints.push([pt[0], pt[1], 0, depth]);
+      }
+      const n = pts.length;
+      const timers = pts.map((_, i) => -(i * stagger));
+      const flags = pts.map(() => false);
+      const dur = 0.38;
+      const t0 = performance.now();
+      let lastT = t0;
+
+      function tickFade() {
+        if (!state.running) return;
+        const now = performance.now();
+        const dt = state.paused ? 0 : (now - lastT);
+        lastT = now;
+        let allDone = true;
+        for (let i = 0; i < n; i++) {
+          if (flags[i]) continue;
+          timers[i] += dt / 1000;
+          if (timers[i] < 0) { allDone = false; continue; }
+          const raw = Math.min(timers[i] / dur, 1);
+          state.donePoints[baseIdx + i][2] = Math.round(easeInOut(raw) * 255);
+          if (raw < 1) allDone = false; else flags[i] = true;
+        }
+        render();
+        if (!allDone) {
+          animFrameId = requestAnimationFrame(tickFade);
+        } else {
+          scheduleNext(0);
+        }
+      }
+      animFrameId = requestAnimationFrame(tickFade);
+      break;
+    }
+
+    case 'done':
+      complete();
+      break;
+  }
+}
+
+function scheduleNext(ms) {
+  if (state.stepTimer) { clearTimeout(state.stepTimer); state.stepTimer = null; }
+  if (autoZoomPending) {
+    const extent = farthestExtent(state.origin, state.doneCircles);
+    if (extent > 0) camera.fitRadius(extent, 0.88);
+    autoZoomPending = false;
+  }
+  if (ms > 0) {
+    state.stepTimer = setTimeout(() => { state.stepTimer = null; runStep(); }, ms);
+  } else {
+    state.stepTimer = setTimeout(() => { state.stepTimer = null; runStep(); }, 16);
+  }
+}
+
+// ───────────────────────────────────────────────────────
+// UI CONTROLS
+// ───────────────────────────────────────────────────────
+
+const levelSlider = document.getElementById('level-slider');
+const ptsSlider   = document.getElementById('pts-slider');
+const levelVal    = document.getElementById('level-val');
+const ptsVal      = document.getElementById('pts-val');
+const startBtn    = document.getElementById('start-btn');
+const pauseBtn    = document.getElementById('pause-btn');
+const restartBtn  = document.getElementById('restart-btn');
+const themeBtn    = document.getElementById('theme-btn');
+
+levelSlider.addEventListener('input', () => {
+  state.level = +levelSlider.value;
+  levelVal.textContent = state.level;
+  if (!state.running) drawPreview();
+});
+
+ptsSlider.addEventListener('input', () => {
+  state.pointCount = +ptsSlider.value;
+  ptsVal.textContent = state.pointCount;
+  if (!state.running) drawPreview();
+});
+
+startBtn.addEventListener('click', () => {
+  if (state.running) {
+    stopAnimation();
+    state.running = false;
+    startBtn.textContent = '▶ START';
+    pauseBtn.disabled = true;
+    restartBtn.disabled = false;
+    levelSlider.disabled = false;
+    ptsSlider.disabled = false;
+    return;
+  }
+  startAnimation();
+});
+
+pauseBtn.addEventListener('click', () => {
+  state.paused = !state.paused;
+  pauseBtn.textContent = state.paused ? '▶ PLAY' : '▐▐ PAUSE';
+  if (!state.paused) {
+    // Resume step execution
+    const anyActive = state.animCircle && state.animT > 0 && state.animT < 1;
+    if (!anyActive) runStep();
+  }
+});
+
+restartBtn.addEventListener('click', () => {
+  stopAnimation();
+  state.done = false;
+  state.doneCircles = [];
+  state.donePoints = [];
+  state.animCircle = null;
+  state.animT = 0;
+  restartBtn.disabled = true;
+  startBtn.textContent = '▶ START';
+  levelSlider.disabled = false;
+  ptsSlider.disabled = false;
+  drawPreview();
+});
+
+themeBtn.addEventListener('click', () => {
+  state.theme = state.theme === DARK ? LIGHT : DARK;
+  themeBtn.textContent = `[B] ${state.theme.label}`;
+  document.body.style.background = state.theme.uiBg;
+  document.getElementById('ui').style.background = state.theme.uiBg;
+  render();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'b' || e.key === 'B') themeBtn.click();
+  if (e.key === 'p' || e.key === 'P') pauseBtn.click();
+  if (e.key === 'Enter') startBtn.click();
+  if (e.key === 'r' || e.key === 'R') restartBtn.click();
+});
+
+// ───────────────────────────────────────────────────────
+// ZOOM & PAN
+// ───────────────────────────────────────────────────────
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camera.scroll(-Math.sign(e.deltaY));
+  render();
+}, { passive: false });
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) {
+    state.panning = true;
+    state.panStart = { x: e.clientX, y: e.clientY, px: camera.panX, py: camera.panY };
+    canvas.style.cursor = 'grabbing';
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  if (state.panning) {
+    const dx = e.clientX - state.panStart.x;
+    const dy = e.clientY - state.panStart.y;
+    camera.panX = state.panStart.px + dx;
+    camera.panY = state.panStart.py + dy;
+    render();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (state.panning) {
+    state.panning = false;
+    canvas.style.cursor = '';
+  }
+});
+
+// ───────────────────────────────────────────────────────
+// PREVIEW (idle state)
+// ───────────────────────────────────────────────────────
+
+function drawPreview() {
+  state.doneCircles = [];
+  state.donePoints = [];
+  state.animCircle = null;
+  state.animT = 0;
+
+  const A = state.origin;
+  const R = state.baseRadius;
+  const N = state.pointCount;
+  const outer = cardinalPoints(A, R, N);
+
+  const extent = farthestExtent(A, [{ center: A, radius: R }]);
+  camera.fitRadius(extent * 1.5, 0.85);
+  camera.panX = 0;
+  camera.panY = 0;
+
+  // Draw base ring
+  state.doneCircles.push({ center: A, radius: R, depth: 0 });
+
+  // Draw outer points
+  for (const pt of outer) {
+    state.donePoints.push([pt[0], pt[1], 200, 0]);
+  }
+  state.donePoints.push([A[0], A[1], 220, 0]);
+
+  // Draw A→point circles (a subset for preview)
+  for (let i = 0; i < Math.min(N, 4); i++) {
+    const c = circleFromPoints(A, outer[i]);
+    state.doneCircles.push({ center: c.center, radius: c.radius, depth: 0 });
+  }
+
+  // Draw a few pair circles
+  const pairs = allPairs(outer);
+  for (let i = 0; i < Math.min(pairs.length, 6); i++) {
+    const c = circleFromPoints(pairs[i][0], pairs[i][1]);
+    state.doneCircles.push({ center: c.center, radius: c.radius, depth: 0 });
+  }
+
+  render();
+}
+
+// ───────────────────────────────────────────────────────
+// INIT
+// ───────────────────────────────────────────────────────
+
+resize();
+drawPreview();
+
+</script>
+</body>
+</html>

@@ -44,16 +44,18 @@ def lerp3(a, b, t):
 def draw_ring_alpha(surface, cx, cy, radius, color, alpha=255, width=1):
     if radius < 1:
         return
-    tmp = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
-    pygame.draw.circle(tmp, (*color, alpha),
-                       (round(cx), round(cy)), round(radius), width)
-    surface.blit(tmp, (0, 0))
+    r = round(radius)
+    s = r * 2 + width * 2
+    tmp = pygame.Surface((s, s), pygame.SRCALPHA)
+    pygame.draw.circle(tmp, (*color, alpha), (r + width, r + width), r, width)
+    surface.blit(tmp, (round(cx) - r - width, round(cy) - r - width))
 
 
 def draw_dot_alpha(surface, cx, cy, color, alpha=255, r=4):
-    tmp = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
-    pygame.draw.circle(tmp, (*color, alpha), (round(cx), round(cy)), r)
-    surface.blit(tmp, (0, 0))
+    s = r * 2 + 2
+    tmp = pygame.Surface((s, s), pygame.SRCALPHA)
+    pygame.draw.circle(tmp, (*color, alpha), (r + 1, r + 1), r)
+    surface.blit(tmp, (round(cx) - r - 1, round(cy) - r - 1))
 
 
 # level → name   (no upper cap)
@@ -94,7 +96,7 @@ class BackgroundAnim:
         self.cy = cy
         self.t0 = time.time()
 
-    def draw(self, surface, chosen_level):
+    def draw(self, surface, chosen_level, point_count=4):
         t  = time.time() - self.t0
         cx, cy = self.cx, self.cy
         br = self.BASE_R
@@ -103,9 +105,10 @@ class BackgroundAnim:
         breath = 1.0 + 0.07 * math.sin(t * 0.85)
         r = br * breath
 
-        # cardinal points
-        angles = [-math.pi/2, 0, math.pi/2, math.pi]
-        pts = [(cx + r*math.cos(a), cy + r*math.sin(a)) for a in angles]
+        # points evenly spaced around the circle
+        pts = [(cx + r * math.cos(-math.pi / 2 + 2 * math.pi * i / point_count),
+                cy + r * math.sin(-math.pi / 2 + 2 * math.pi * i / point_count))
+               for i in range(point_count)]
 
         # Show progressively more rings based on chosen level
         rings_to_show = min(chosen_level, self.N_RINGS)
@@ -127,9 +130,9 @@ class BackgroundAnim:
             mcx, mcy = (px+cx)/2, (py+cy)/2
             draw_ring_alpha(surface, mcx, mcy, mr, (65, 65, 65), alpha=80)
 
-        # Diagonal pair circles
+        # Neighbor pair circles
         for i in range(len(pts)):
-            p1, p2 = pts[i], pts[(i+2)%len(pts)]
+            p1, p2 = pts[i], pts[(i+1)%len(pts)]
             mr  = math.hypot(p1[0]-p2[0], p1[1]-p2[1]) / 2
             mcx = (p1[0]+p2[0])/2
             mcy = (p1[1]+p2[1])/2
@@ -157,6 +160,9 @@ class LevelSelector:
     MIN_LEVEL = 1
     MAX_LEVEL = 99   # effectively unlimited
 
+    MIN_POINTS = 2
+    MAX_POINTS = 24
+
     # Digit-typing buffer
     _DIGIT_TIMEOUT = 1.2   # seconds before buffer resets
 
@@ -167,6 +173,7 @@ class LevelSelector:
         self.font_med   = font_med
         self.font_small = font_small
         self.level      = 2
+        self.point_count = 4
         self._confirm_t = None
 
         self._digit_buf   = ""
@@ -196,12 +203,16 @@ class LevelSelector:
                     self.level = min(self.MAX_LEVEL, val)
                 return False
 
-            if event.key in (pygame.K_UP, pygame.K_w, pygame.K_RIGHT):
+            if event.key in (pygame.K_UP, pygame.K_w):
                 self._clear_buf()
                 self.level = min(self.MAX_LEVEL, self.level + 1)
-            elif event.key in (pygame.K_DOWN, pygame.K_s, pygame.K_LEFT):
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
                 self._clear_buf()
                 self.level = max(self.MIN_LEVEL, self.level - 1)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self.point_count = min(self.MAX_POINTS, self.point_count + 1)
+            elif event.key in (pygame.K_LEFT, pygame.K_a):
+                self.point_count = max(self.MIN_POINTS, self.point_count - 1)
             elif event.key == pygame.K_RETURN:
                 self._confirm_t = time.time()
                 return True
@@ -273,6 +284,12 @@ class LevelSelector:
                              self.btn_up.y  + (self.btn_up.h - a_up.get_height())//2))
         surface.blit(a_dn, (self.btn_dn.x + (self.btn_dn.w - a_dn.get_width())//2,
                              self.btn_dn.y  + (self.btn_dn.h - a_dn.get_height())//2))
+
+        # ── point count ──
+        pts_col = lerp3(SOFT, (100, 180, 240), dep_t)
+        pts_s   = self.font_small.render(
+            f"POINTS: {self.point_count}   [← →] or [A D]", True, pts_col)
+        surface.blit(pts_s, (cx - pts_s.get_width() // 2, cy + 86))
 
         # ── type-a-number hint ──
         if self._digit_buf:
@@ -350,11 +367,11 @@ def run_intro(screen, clock):
             selector._digit_buf = ""
 
         screen.fill(BG)
-        bg_anim.draw(screen, selector.level)
+        bg_anim.draw(screen, selector.level, selector.point_count)
         selector.draw(screen)
         pygame.display.flip()
         clock.tick(60)
 
         if confirmed_at is not None:
             if time.time() - confirmed_at >= CONFIRM_HOLD:
-                return selector.level
+                return selector.level, selector.point_count
