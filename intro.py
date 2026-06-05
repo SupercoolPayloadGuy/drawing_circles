@@ -307,7 +307,7 @@ class LevelSelector:
         pts_col = lerp3(SOFT, (100, 180, 240), dep_t)
         pts_s   = self.font_small.render(
             f"POINTS: {self.point_count}   [← →] or [A D]", True, pts_col)
-        surface.blit(pts_s, (cx - pts_s.get_width() // 2, cy + 86))
+        surface.blit(pts_s, (cx - pts_s.get_width() // 2, cy + 88))
 
         # ── type-a-number hint ──
         if self._digit_buf:
@@ -316,13 +316,13 @@ class LevelSelector:
         else:
             buf_s = self.font_small.render(
                 "or type a number directly", True, GREY)
-        surface.blit(buf_s, (cx - buf_s.get_width()//2, cy + 90))
+        surface.blit(buf_s, (cx - buf_s.get_width()//2, cy + 112))
 
         # ── progress bar showing depth ──
         bar_w   = 300
         bar_h   = 4
         bx      = cx - bar_w // 2
-        by      = cy + 125
+        by      = cy + 138
         filled  = round(bar_w * min(1.0, (self.level - 1) / 8.0))
         pygame.draw.rect(surface, DIM,  (bx, by, bar_w, bar_h), border_radius=2)
         if filled > 0:
@@ -332,7 +332,7 @@ class LevelSelector:
 
         # ── enter hint ──
         hint = self.font_small.render("[ENTER] to start", True, GREY)
-        surface.blit(hint, (cx - hint.get_width()//2, cy + 155))
+        surface.blit(hint, (cx - hint.get_width()//2, cy + 165))
 
         # ── dot progress (up to 9 dots, then show +N) ──
         MAX_DOTS = 9
@@ -340,7 +340,7 @@ class LevelSelector:
         dot_r    = 4
         spacing  = 20
         ox       = cx - (MAX_DOTS - 1) * spacing // 2
-        oy       = cy + 195
+        oy       = cy + 200
         for i in range(MAX_DOTS):
             active = (i + 1) <= shown
             col    = lerp3((255, 220, 50), (80, 200, 255),
