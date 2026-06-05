@@ -8,8 +8,10 @@ Run with:  python main.py
 Controls during animation:
   P or pause button    — pause / resume
   B                    — toggle dark/light theme
+  ESC, M, MENU button  — return to main menu
   scroll               — zoom in / out
   ↺ RESTART button     — restart after animation finishes
+  (choose LOOK AROUND on completion to keep viewing)
 
 File layout:
   main.py       ← orchestration, construction stages
@@ -181,8 +183,9 @@ def run_construction(level, screen, clock, point_count=4):
 
 
 def _idle(state, renderer, clock):
-    """Spin in the idle loop; show restart button; raise RestartSignal on click."""
+    """Spin in the idle loop; show choice overlay; raise RestartSignal on menu."""
     renderer.animation_done = True
+    renderer.show_choices = True
     while True:
         renderer.redraw()
         if pump(state):

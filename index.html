@@ -63,6 +63,22 @@ body{display:flex;flex-direction:column;
            transition:background .25s,color .25s,border-color .25s}
 #theme-btn:hover{color:#ffc832;border-color:#ffc832}
 
+/* ── COMPLETION OVERLAY ── */
+#complete-overlay{position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.72);display:none;flex-direction:column;
+  align-items:center;justify-content:center;z-index:20;pointer-events:none}
+#complete-overlay>*{pointer-events:auto}
+.complete-title{font-size:22px;font-weight:bold;color:#ffc832;margin-bottom:28px;
+  letter-spacing:2px}
+.complete-actions{display:flex;gap:18px}
+.complete-actions button{padding:10px 26px;font:15px monospace;font-weight:bold;
+  background:#2a2a2a;color:#ccc;border:1px solid #666;border-radius:8px;
+  cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.complete-actions button:hover{background:#3a3a3a;color:#ffc832;border-color:#ffc832}
+#choice-look-btn{background:#1a3a2a;border-color:#2a6a4a;color:#8f8}
+#choice-look-btn:hover{background:#2a5a3a;color:#afa;border-color:#4a9a6a}
+#menu-btn{display:none}
+
 /* ── LIGHT MODE ── */
 body.light{background:#f5f0eb;color:#555}
 body.light #ui{background:#e6e0d8;border-color:#ccc}
@@ -102,6 +118,14 @@ body.light .intro-dot{background:#ddd}
   </div>
 
   <button id="theme-btn">[B] DARK</button>
+
+  <div id="complete-overlay">
+    <div class="complete-title">CONSTRUCTION COMPLETE</div>
+    <div class="complete-actions">
+      <button id="choice-menu-btn">← MAIN MENU</button>
+      <button id="choice-look-btn">LOOK AROUND</button>
+    </div>
+  </div>
 </div>
 
 <div id="ui">
@@ -116,6 +140,7 @@ body.light .intro-dot{background:#ddd}
   <button id="start-btn" class="prim">▶ START</button>
   <button id="pause-btn" disabled style="display:none">▐▐ PAUSE</button>
   <button id="restart-btn" disabled style="display:none">↺ RESTART</button>
+  <button id="menu-btn">← MENU</button>
   <div class="sep"></div>
   <span id="zoom-display">zoom <span class="hl">100%</span></span>
   <span style="font:12px monospace;color:#555;margin-left:auto">
@@ -648,6 +673,8 @@ function startConstruction() {
   document.getElementById('restart-btn').style.display = 'none';
   document.getElementById('level-slider').disabled = true;
   document.getElementById('pts-slider').disabled = true;
+  menuBtn.style.display = '';
+  completeOverlay.style.display = 'none';
 
   state.steps = buildSteps();
   runStep();
@@ -667,9 +694,11 @@ function complete() {
   document.getElementById('start-btn').textContent = '↺ RESTART';
   document.getElementById('start-btn').classList.add('prim');
   document.getElementById('pause-btn').style.display = 'none';
-  document.getElementById('restart-btn').style.display = '';
+  document.getElementById('restart-btn').style.display = 'none';
   document.getElementById('level-slider').disabled = false;
   document.getElementById('pts-slider').disabled = false;
+  menuBtn.style.display = 'none';
+  completeOverlay.style.display = 'flex';
   render();
   animFrameId = requestAnimationFrame(render);
 }
@@ -878,10 +907,14 @@ const levelSlider = document.getElementById('level-slider');
 const ptsSlider   = document.getElementById('pts-slider');
 const levelVal    = document.getElementById('level-val');
 const ptsVal      = document.getElementById('pts-val');
-const startBtn    = document.getElementById('start-btn');
-const pauseBtn    = document.getElementById('pause-btn');
-const restartBtn  = document.getElementById('restart-btn');
-const themeBtn    = document.getElementById('theme-btn');
+const startBtn     = document.getElementById('start-btn');
+const pauseBtn     = document.getElementById('pause-btn');
+const restartBtn   = document.getElementById('restart-btn');
+const themeBtn     = document.getElementById('theme-btn');
+const menuBtn      = document.getElementById('menu-btn');
+const choiceMenuBtn = document.getElementById('choice-menu-btn');
+const choiceLookBtn = document.getElementById('choice-look-btn');
+const completeOverlay = document.getElementById('complete-overlay');
 
 levelSlider.addEventListener('input', () => {
   state.level = +levelSlider.value;
@@ -911,6 +944,13 @@ pauseBtn.addEventListener('click', () => {
 
 restartBtn.addEventListener('click', resetUI);
 
+menuBtn.addEventListener('click', resetUI);
+choiceMenuBtn.addEventListener('click', resetUI);
+choiceLookBtn.addEventListener('click', () => {
+  completeOverlay.style.display = 'none';
+  menuBtn.style.display = '';
+});
+
 function resetUI() {
   stopConstruction();
   state.done = false;
@@ -933,6 +973,8 @@ function resetUI() {
   document.getElementById('restart-btn').disabled = true;
   document.getElementById('level-slider').disabled = false;
   document.getElementById('pts-slider').disabled = false;
+  menuBtn.style.display = 'none';
+  completeOverlay.style.display = 'none';
   bg.start();
 }
 
@@ -949,6 +991,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'b' || e.key === 'B') themeBtn.click();
   if (e.key === 'p' || e.key === 'P') pauseBtn.click();
   if (e.key === 'Enter' && !state.running) startBtn.click();
+  if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
+    if (state.running || state.done) menuBtn.click();
+  }
 
   // Intro keyboard controls (only when not running)
   if (!state.running && !state.done) {

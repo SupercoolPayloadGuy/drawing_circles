@@ -156,10 +156,20 @@ class Renderer:
             self._PAD * 2 + self._BTN_H,
             self._BTN_W, self._BTN_H)
 
-        # Restart — bottom centre, only shown when done
+        # Restart — bottom centre, only shown when done (not during choice overlay)
         self.restart_rect = pygame.Rect(
             sw // 2 - 90, sh - self._PAD - self._BTN_H,
             180, self._BTN_H)
+
+        # MENU button — top-left, always visible during animation/done
+        self.menu_rect = pygame.Rect(
+            self._PAD, self._PAD,
+            self._BTN_W, self._BTN_H)
+
+        # Choice-screen state
+        self.show_choices    = False
+        self.choice_menu_rect = None
+        self.choice_look_rect = None
 
         # --- mutable state set by animation module ---
         self.done_circles    = []   # [(world_center, world_radius, depth_01), …]
@@ -172,9 +182,12 @@ class Renderer:
         self.animation_done  = False
 
         # hover state
-        self._hover_pause   = False
-        self._hover_restart = False
-        self._hover_toggle  = False
+        self._hover_pause        = False
+        self._hover_restart      = False
+        self._hover_toggle       = False
+        self._hover_menu         = False
+        self._hover_choice_menu  = False
+        self._hover_choice_look  = False
 
     # ── theme ──────────────────────────────────
 
@@ -216,6 +229,8 @@ class Renderer:
 
     def _draw_buttons(self):
         th = self.theme
+        # MENU — always visible during animation / done
+        self._btn(self.menu_rect, "← MENU", self._hover_menu)
         # Theme toggle
         self._btn(self.toggle_rect,
                   f"[B] {th['label']}",
@@ -224,9 +239,35 @@ class Renderer:
         if not self.animation_done:
             icon = "▐▐ PAUSE" if not self.paused else "▶  PLAY"
             self._btn(self.pause_rect, f"[P] {icon}", self._hover_pause)
-        # Restart  (only when done)
-        if self.animation_done:
+        # Restart  (only when done and not showing choice overlay)
+        if self.animation_done and not self.show_choices:
             self._btn(self.restart_rect, "↺  RESTART", self._hover_restart)
+        # Completion choice overlay
+        if self.animation_done and self.show_choices:
+            self._draw_completion_choices()
+
+    def _draw_completion_choices(self):
+        sw, sh = self.screen.get_size()
+        s = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 180))
+        self.screen.blit(s, (0, 0))
+
+        lbl = self.font.render("CONSTRUCTION COMPLETE", True, (255, 220, 50))
+        self.screen.blit(lbl, (sw // 2 - lbl.get_width() // 2, sh // 2 - 60))
+
+        btn_w, btn_h = 200, 46
+        gap = 24
+        total = btn_w * 2 + gap
+        cx = sw // 2
+        cy = sh // 2 + 6
+
+        self.choice_menu_rect = pygame.Rect(cx - total // 2, cy - btn_h // 2,
+                                            btn_w, btn_h)
+        self.choice_look_rect = pygame.Rect(cx - total // 2 + btn_w + gap,
+                                            cy - btn_h // 2, btn_w, btn_h)
+
+        self._btn(self.choice_menu_rect, "← MAIN MENU", self._hover_choice_menu)
+        self._btn(self.choice_look_rect, "LOOK AROUND", self._hover_choice_look)
 
     def _draw_hud(self):
         fg = self.theme["hud_fg"]
@@ -239,7 +280,7 @@ class Renderer:
             lines.append("— PAUSED —")
         for i, line in enumerate(lines):
             lbl = self.font_sm.render(line, True, fg)
-            self.screen.blit(lbl, (self._PAD, self._PAD + i * 18))
+            self.screen.blit(lbl, (self._PAD, self._PAD + self._BTN_H + 8 + i * 18))
 
     # ── update hover state  ────────────────────
 
@@ -247,8 +288,17 @@ class Renderer:
         self._hover_toggle  = self.toggle_rect.collidepoint(mouse_pos)
         self._hover_pause   = (not self.animation_done and
                                self.pause_rect.collidepoint(mouse_pos))
-        self._hover_restart = (self.animation_done and
+        self._hover_restart = (self.animation_done and not self.show_choices and
                                self.restart_rect.collidepoint(mouse_pos))
+        self._hover_menu    = self.menu_rect.collidepoint(mouse_pos)
+        if self.show_choices:
+            self._hover_choice_menu = (self.choice_menu_rect is not None and
+                                      self.choice_menu_rect.collidepoint(mouse_pos))
+            self._hover_choice_look = (self.choice_look_rect is not None and
+                                      self.choice_look_rect.collidepoint(mouse_pos))
+        else:
+            self._hover_choice_menu = False
+            self._hover_choice_look = False
 
     # ── main draw ──────────────────────────────
 

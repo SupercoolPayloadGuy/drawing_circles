@@ -71,14 +71,23 @@ def pump(state):
                 r.toggle_theme()
             elif event.key == pygame.K_p:
                 r.paused = not r.paused
+            elif event.key in (pygame.K_ESCAPE, pygame.K_m):
+                pygame.event.post(pygame.event.Event(RESTART_EVENT))
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if r.toggle_rect.collidepoint(event.pos):
+            if r.menu_rect.collidepoint(event.pos):
+                pygame.event.post(pygame.event.Event(RESTART_EVENT))
+            elif r.toggle_rect.collidepoint(event.pos):
                 r.toggle_theme()
             elif not r.animation_done and r.pause_rect.collidepoint(event.pos):
                 r.paused = not r.paused
-            elif r.animation_done and r.restart_rect.collidepoint(event.pos):
+            elif r.animation_done and not r.show_choices and r.restart_rect.collidepoint(event.pos):
                 pygame.event.post(pygame.event.Event(RESTART_EVENT))
+            elif r.show_choices:
+                if r.choice_menu_rect and r.choice_menu_rect.collidepoint(event.pos):
+                    pygame.event.post(pygame.event.Event(RESTART_EVENT))
+                elif r.choice_look_rect and r.choice_look_rect.collidepoint(event.pos):
+                    r.show_choices = False
 
         if event.type == pygame.MOUSEWHEEL:
             r.camera.scroll(event.y)
