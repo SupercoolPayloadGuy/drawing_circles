@@ -16,7 +16,7 @@ import math
 import time
 import pygame
 
-from config import WIDTH, HEIGHT, Config, COLOR_SCHEMES
+from config import Config, COLOR_SCHEMES
 
 
 BG     = (10,  10,  10)
@@ -91,7 +91,8 @@ class _BackgroundAnim:
         exp_r = r * (1.0 + phase * 2.0)
         exp_a = round((1.0 - phase) * 40)
         if exp_a > 0:
-            tmp = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            sw, sh = surface.get_size()
+            tmp = pygame.Surface((sw, sh), pygame.SRCALPHA)
             pygame.draw.circle(tmp, (255, 220, 50, exp_a), (cx, cy), round(exp_r), 1)
             surface.blit(tmp, (0, 0))
 
@@ -261,6 +262,13 @@ def run_intro(screen, clock, prev_config=None):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 raise SystemExit
+            if event.type == pygame.VIDEORESIZE:
+                screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                w, h = screen.get_size()
+                cx, cy = w // 2, h // 2
+                bg_anim = _BackgroundAnim(cx, cy)
+                btn_up = pygame.Rect(cx + 50, cy - 8, 44, 44)
+                btn_dn = pygame.Rect(cx - 94, cy - 8, 44, 44)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
                     show_settings = not show_settings

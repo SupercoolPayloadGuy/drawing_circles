@@ -9,7 +9,7 @@ import time
 import pygame
 import colorsys
 
-from config import WIDTH, HEIGHT, RADIUS, BG, WHITE, LINE_WIDTH, DRAW_FLOWER
+from config import BG, WHITE, LINE_WIDTH, DRAW_FLOWER
 
 
 # ── colour schemes ──────────────────────────────────────────────────
@@ -34,9 +34,9 @@ def get_color(index, total, scheme):
 
 # ── drawing primitives ──────────────────────────────────────────────
 
-def create_mask(center):
-    mask = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    pygame.draw.circle(mask, (255, 255, 255, 255), center, RADIUS)
+def create_mask(center, w, h, radius):
+    mask = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.circle(mask, (255, 255, 255, 255), center, radius)
     return mask
 
 
@@ -84,7 +84,7 @@ def _progress_pct(stage, main_progress, visible_points, total_points,
 
 def draw_hud(surface, stage, main_progress, visible_points, total_points,
              current_circle, total_circles,
-             show_count, show_bar):
+             show_count, show_bar, ww):
     if not show_count and not show_bar:
         return
 
@@ -106,7 +106,7 @@ def draw_hud(surface, stage, main_progress, visible_points, total_points,
     line_h = 20
     box_h = len(lines) * line_h + 16
     box_w = 220
-    bx, by = WIDTH - box_w - 16, 16
+    bx, by = ww - box_w - 16, 16
 
     bg = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
     bg.fill((0, 0, 0, 160))
@@ -127,7 +127,8 @@ def render_frame(screen, drawing, mask, center,
                  current_circle, circles,
                  current_progress, stage,
                  points, visible_points,
-                 color_scheme, show_circle_count, show_progress_bar):
+                 color_scheme, show_circle_count, show_progress_bar,
+                 ww, wh, mr):
     total = len(circles)
 
     drawing.fill((0, 0, 0, 0))
@@ -147,14 +148,14 @@ def render_frame(screen, drawing, mask, center,
     screen.fill(BG)
     screen.blit(drawing, (0, 0))
 
-    draw_arc(screen, center, RADIUS, main_progress, WHITE, 3)
+    draw_arc(screen, center, mr, main_progress, WHITE, 3)
     draw_dot(screen, center)
 
     for p in points[:visible_points]:
         draw_dot(screen, p)
 
     draw_hud(screen, stage, main_progress, visible_points, len(points),
-             current_circle, total, show_circle_count, show_progress_bar)
+             current_circle, total, show_circle_count, show_progress_bar, ww)
 
 
 # ── UI helpers (end-screen buttons, hints) ──────────────────────────
@@ -178,9 +179,9 @@ def draw_button(surface, rect, label, bg=(30, 30, 30), fg=(200, 200, 200),
                      rect.y + (rect.h - s.get_height()) // 2))
 
 
-def draw_hint(surface, text, y=12, color=(150, 150, 150)):
+def draw_hint(surface, text, w, y=12, color=(150, 150, 150)):
     s = _btn_font().render(text, True, color)
-    surface.blit(s, (WIDTH // 2 - s.get_width() // 2, y))
+    surface.blit(s, (w // 2 - s.get_width() // 2, y))
 
 
 # ── export ──────────────────────────────────────────────────────────
@@ -191,7 +192,10 @@ def export_png(screen, filename):
 
 
 def export_svg(filename, center, points, circles, finished_indices,
-               main_radius, circle_count, line_width, scheme):
+               main_radius, circle_count, line_width, scheme,
+               ww=None, wh=None):
+    if ww is None:
+        ww, wh = 1200, 1200
     cxs, cys = center
     clip_id = "mask0"
 
@@ -200,9 +204,9 @@ def export_svg(filename, center, points, circles, finished_indices,
     with open(filename, "w") as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
         f.write(f'<svg xmlns="http://www.w3.org/2000/svg" '
-                f'width="{WIDTH}" height="{HEIGHT}" '
-                f'viewBox="0 0 {WIDTH} {HEIGHT}">\n')
-        f.write(f'<rect width="{WIDTH}" height="{HEIGHT}" fill="#000"/>\n')
+                f'width="{ww}" height="{wh}" '
+                f'viewBox="0 0 {ww} {wh}">\n')
+        f.write(f'<rect width="{ww}" height="{wh}" fill="#000"/>\n')
         f.write(f'<clipPath id="{clip_id}">\n')
         f.write(f'  <circle cx="{cxs}" cy="{cys}" r="{main_radius}"/>\n')
         f.write(f'</clipPath>\n')
