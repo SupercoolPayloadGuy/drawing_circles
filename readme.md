@@ -4,6 +4,7 @@ A small project that visualises a geometric circle-construction algorithm. It in
 
 - A self-contained HTML renderer (open `index.html`) for quick demos.
 - A Python/pygame animated application (`main.py`) with configurable levels and point counts.
+- Export support for completed constructions as SVG or PNG from the Python app.
 
 This README explains installation, usage, examples, configuration, and development notes.
 
@@ -21,7 +22,7 @@ This README explains installation, usage, examples, configuration, and developme
 
 ## Project Overview
 
-The animation builds circles by repeatedly projecting points and drawing circles through point pairs. It demonstrates recursive geometric constructions with depth-based colouring, auto-zoom, and interactive controls.
+The animation builds circles by repeatedly projecting points and drawing circles through point pairs. It demonstrates recursive geometric constructions with depth-based colouring, auto-zoom, and interactive controls. The Python app also lets you export completed constructions as SVG or PNG files.
 
 ## Quick Start
 
@@ -52,6 +53,7 @@ Controls (keyboard & mouse):
 - Arrow keys or `W/A/S/D` — adjust level and point count in the UI
 - Mouse wheel — zoom
 - Click & drag — pan
+- After the animation finishes, use the on-screen export buttons to save SVG or PNG output.
 
 If you modify settings in `config.py` those changes will affect the behaviour of `main.py`.
 
@@ -84,6 +86,7 @@ Adjust these values directly or expose them via CLI in `main.py` if you want run
 - `renderer.py` — drawing, camera, HUD and theme handling
 - `geometry.py` — geometric primitives and helpers
 - `construction.py` — construction orchestration (animation stages)
+- `export.py` — save completed constructions as SVG or PNG
 - `intro.py` — intro/menu UI
 - `config.py` — default settings
 - `requirements.txt` — Python dependencies
@@ -118,5 +121,3 @@ Please keep changes focused and include a brief note describing the rationale.
 If you need help, open an issue in the repository with details about your environment and what you tried.
 
 ---
-
-Updated README — enjoy exploring the constructions!
