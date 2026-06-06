@@ -16,6 +16,10 @@ from renderer import draw_button, draw_hint
 from intro    import run_intro
 
 
+MENU_BTN_W = 130
+MENU_BTN_H = 36
+MENU_BTN = pygame.Rect(16, 16, MENU_BTN_W, MENU_BTN_H)
+
 BTN_W = 130
 BTN_H = 44
 BTN_GAP = 16
@@ -93,16 +97,18 @@ def run_animation(screen, clock, cfg: Config):
     buttons = _make_buttons()
     clean_frame = None
 
+    menu_hover = False
     running = True
     while running:
         dt = clock.tick(FPS) / 1000
+        menu_hover = MENU_BTN.collidepoint(pygame.mouse.get_pos())
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key in (pygame.K_ESCAPE, pygame.K_m):
                     if camera_active:
                         camera_active = False
                         cam_zoom = 1.0
@@ -113,6 +119,10 @@ def run_animation(screen, clock, cfg: Config):
                     print(f"exported {_export_png(screen)}")
                 elif event.key == pygame.K_s:
                     print(f"exported {_export_svg(center, points, circles, current_circle, mr, cfg.color_scheme)}")
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if MENU_BTN.collidepoint(event.pos):
+                    return
 
             if stage == DONE or camera_active:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -208,6 +218,10 @@ def run_animation(screen, clock, cfg: Config):
                          points, visible_points,
                          cfg.color_scheme, cfg.show_circle_count,
                          cfg.show_progress_bar)
+
+            draw_button(screen, MENU_BTN, "← MENU",
+                        bg=(40, 40, 40) if menu_hover else (30, 30, 30),
+                        fg=(255, 220, 50) if menu_hover else (200, 200, 200))
 
             if stage == DONE and not camera_active:
                 clean_frame = screen.copy()
