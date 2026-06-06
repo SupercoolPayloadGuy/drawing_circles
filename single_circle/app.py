@@ -3,6 +3,7 @@ app.py — animation state machine and main loop for single_circle.
 """
 
 import math
+import os
 import time
 
 import pygame
@@ -51,14 +52,18 @@ def _make_bottom_buttons(ww, wh):
 
 def _export_jpg(screen):
     ts = time.strftime("%Y%m%d_%H%M%S")
-    fn = f"circle_flower_{ts}.jpg"
+    base = os.path.join(os.getcwd(), "map", "exports")
+    os.makedirs(base, exist_ok=True)
+    fn = os.path.join(base, f"circle_flower_{ts}.jpg")
     export_png(screen, fn)
     return fn
 
 
 def _export_svg(center, points, circles, circle_count, mr, scheme, ww, wh):
     ts = time.strftime("%Y%m%d_%H%M%S")
-    fn = f"circle_flower_{ts}.svg"
+    base = os.path.join(os.getcwd(), "map", "exports")
+    os.makedirs(base, exist_ok=True)
+    fn = os.path.join(base, f"circle_flower_{ts}.svg")
     export_svg(fn, center, points, circles, list(range(circle_count)),
                mr, circle_count, LINE_WIDTH, scheme, ww, wh)
     return fn

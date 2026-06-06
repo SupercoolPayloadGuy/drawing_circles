@@ -119,4 +119,6 @@ def export_png(renderer, filepath):
 
 def _timestamp_path(ext):
     ts = time.strftime("%Y%m%d_%H%M%S")
-    return os.path.join(os.getcwd(), f"construction_{ts}.{ext}")
+    base = os.path.join(os.getcwd(), "map", "exports")
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, f"construction_{ts}.{ext}")
