@@ -4,11 +4,13 @@ animation.py — timing, easing, pause/play, animated circle drawing,
 """
 
 import math
+import os
 import time
 import pygame
 
 from geometry import angle_on_circle, farthest_extent, circle_from_points, all_pairs
 from renderer import RESTART_EVENT
+from export import _timestamp_path, export_svg, export_png
 
 
 # ──────────────────────────────────────────────
@@ -88,13 +90,34 @@ def pump(state):
                 r.toggle_theme()
             elif not r.animation_done and r.pause_rect.collidepoint(event.pos):
                 r.paused = not r.paused
-            elif r.animation_done and not r.show_choices and r.restart_rect.collidepoint(event.pos):
-                pygame.event.post(pygame.event.Event(RESTART_EVENT))
+            elif r.animation_done and not r.show_choices:
+                if r.restart_rect.collidepoint(event.pos):
+                    pygame.event.post(pygame.event.Event(RESTART_EVENT))
+                elif r.export_svg_rect and r.export_svg_rect.collidepoint(event.pos):
+                    path = _timestamp_path("svg")
+                    export_svg(r.done_circles, r.done_points, r.theme, path)
+                    r.export_message = f"SVG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                elif r.export_png_rect and r.export_png_rect.collidepoint(event.pos):
+                    path = _timestamp_path("png")
+                    export_png(r, path)
+                    r.export_message = f"PNG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
             elif r.show_choices:
                 if r.choice_menu_rect and r.choice_menu_rect.collidepoint(event.pos):
                     pygame.event.post(pygame.event.Event(RESTART_EVENT))
                 elif r.choice_look_rect and r.choice_look_rect.collidepoint(event.pos):
                     r.show_choices = False
+                elif r.choice_svg_rect and r.choice_svg_rect.collidepoint(event.pos):
+                    path = _timestamp_path("svg")
+                    export_svg(r.done_circles, r.done_points, r.theme, path)
+                    r.export_message = f"SVG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                elif r.choice_png_rect and r.choice_png_rect.collidepoint(event.pos):
+                    path = _timestamp_path("png")
+                    export_png(r, path)
+                    r.export_message = f"PNG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
 
         if event.type == pygame.MOUSEWHEEL:
             r.camera.scroll(event.y)

@@ -98,6 +98,46 @@ body.light .intro-type{color:#999}
 body.light .intro-enter{color:#999}
 body.light .intro-bar-wrap{background:#ddd}
 body.light .intro-dot{background:#ddd}
+
+/* ── SETTINGS PANEL ── */
+#settings-overlay{position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.72);display:none;flex-direction:column;
+  align-items:center;justify-content:center;z-index:30;pointer-events:none}
+#settings-overlay>*{pointer-events:auto}
+.settings-panel{background:#121212;border:1px solid #3c3c3c;
+  border-radius:10px;padding:24px 32px;width:460px;max-width:92%}
+.settings-title{font-size:20px;font-weight:bold;color:#ffc832;
+  text-align:center;margin-bottom:16px;letter-spacing:2px}
+.settings-row{display:flex;align-items:center;padding:8px 0;
+  border-bottom:1px solid #222}
+.settings-row:last-child{border:none}
+.settings-label{font-size:14px;color:#d7d7d7;flex:1}
+.settings-control{display:flex;align-items:center;gap:10px}
+.settings-control input[type=range]{width:120px;accent-color:#ffc832}
+.settings-control .val{font-size:13px;color:#ffc832;min-width:50px;text-align:right}
+.settings-toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.settings-toggle input{opacity:0;width:0;height:0}
+.settings-toggle .slider{position:absolute;inset:0;background:#323232;
+  border-radius:22px;transition:.2s}
+.settings-toggle .slider::before{content:'';position:absolute;left:3px;top:3px;
+  width:16px;height:16px;background:#888;border-radius:50%;transition:.2s}
+.settings-toggle input:checked+.slider{background:#50dc78}
+.settings-toggle input:checked+.slider::before{background:#fff;transform:translateX(18px)}
+.settings-hint{font-size:12px;color:#464646;text-align:center;margin-top:14px}
+
+/* ── EXPORT BUTTONS ── */
+.export-actions{display:flex;gap:18px;margin-top:14px}
+.export-actions button{padding:10px 26px;font:15px monospace;font-weight:bold;
+  background:#1a2a2a;color:#8cc;border:1px solid #2a6a6a;border-radius:8px;
+  cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.export-actions button:hover{background:#2a4a4a;color:#aff;border-color:#4a9a9a}
+
+#export-svg-btn-look, #export-png-btn-look{display:none}
+
+/* ── HUD ── */
+#hud{position:absolute;top:56px;left:14px;font:13px monospace;color:#828282;
+  line-height:1.8;pointer-events:none;z-index:5}
+body.light #hud{color:#999}
 </style>
 </head>
 <body>
@@ -119,12 +159,85 @@ body.light .intro-dot{background:#ddd}
 
   <button id="theme-btn">[B] DARK</button>
 
+  <div id="hud"></div>
+
+  <div id="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-title">⚙ SETTINGS</div>
+      <div class="settings-row">
+        <span class="settings-label">base radius</span>
+        <div class="settings-control">
+          <input type="range" id="s-base-radius" min="40" max="400" value="140" step="10">
+          <span class="val" id="s-base-radius-val">140px</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">speed</span>
+        <div class="settings-control">
+          <input type="range" id="s-speed" min="0.25" max="8" value="1" step="0.25">
+          <span class="val" id="s-speed-val">1.00x</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show circle count</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-circles" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show level</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-level" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show total levels</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-total-levels">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show zoom</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-zoom" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show speed</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-speed" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-hint">[TAB] or [ENTER] back &middot; arrows to adjust</div>
+    </div>
+  </div>
+
   <div id="complete-overlay">
     <div class="complete-title">CONSTRUCTION COMPLETE</div>
     <div class="complete-actions">
       <button id="choice-menu-btn">← MAIN MENU</button>
       <button id="choice-look-btn">LOOK AROUND</button>
     </div>
+    <div class="export-actions">
+      <button id="choice-svg-btn">EXPORT SVG</button>
+      <button id="choice-png-btn">EXPORT PNG</button>
+    </div>
+    <div id="export-msg" style="font:14px monospace;color:#8c8;margin-top:16px"></div>
   </div>
 </div>
 
@@ -140,9 +253,13 @@ body.light .intro-dot{background:#ddd}
   <button id="start-btn" class="prim">▶ START</button>
   <button id="pause-btn" disabled style="display:none">▐▐ PAUSE</button>
   <button id="restart-btn" disabled style="display:none">↺ RESTART</button>
+  <button id="export-svg-btn-look" disabled style="display:none">EXPORT SVG</button>
+  <button id="export-png-btn-look" disabled style="display:none">EXPORT PNG</button>
   <button id="menu-btn">← MENU</button>
   <div class="sep"></div>
   <span id="zoom-display">zoom <span class="hl">100%</span></span>
+  <div class="sep"></div>
+  <button id="settings-btn">⚙ SETTINGS</button>
   <span style="font:12px monospace;color:#555;margin-left:auto">
     scroll to zoom &middot; drag to pan
   </span>
@@ -207,6 +324,9 @@ function cardinalPoints(center, radius, count = 4) {
 }
 
 function easeInOut(t) { return t * t * (3 - 2 * t); }
+function drawDur() {
+  return Math.max(0.025, 0.30 / (1.0 + 0.35 * (state.level - 1))) / state.speed;
+}
 
 // ───────────────────────────────────────────────────────
 // THEMES & COLOUR
@@ -514,6 +634,12 @@ const state = {
   pointCount: 4,
   origin: [0, 0],
   baseRadius: 140,
+  speed: 1.0,
+  showCircleCount: true,
+  showLevel: true,
+  showTotalLevels: false,
+  showZoom: true,
+  showSpeed: true,
   outer: [],
   doneCircles: [],
   donePoints: [],
@@ -530,6 +656,7 @@ const state = {
   _digitBuf: '',
   _digitTs: 0,
   _DIGIT_TIMEOUT: 1200,
+  _inSettings: false,
 };
 
 // ───────────────────────────────────────────────────────
@@ -543,37 +670,38 @@ function buildSteps() {
   const N = state.pointCount;
   const outer = cardinalPoints(A, R, N);
   state.outer = outer;
-  const PAUSE = 0.06, STAGE = 0.28;
+  const PAUSE = 0.06 / state.speed, STAGE = 0.28 / state.speed;
+  const DUR = drawDur();
 
   steps.push({ type: 'render' });
-  steps.push({ type: 'pause', dur: 0.3 });
-  steps.push({ type: 'arc', center: A, radius: R, depth: 0, from: outer[0], dur: 0.3 });
+  steps.push({ type: 'pause', dur: 0.3 / state.speed });
+  steps.push({ type: 'arc', center: A, radius: R, depth: 0, from: outer[0], dur: DUR });
   steps.push({ type: 'pause', dur: STAGE });
-  steps.push({ type: 'fadePts', pts: [A, ...outer], depth: 0, stagger: 0.07 });
+  steps.push({ type: 'fadePts', pts: [A, ...outer], depth: 0, stagger: 0.07 / state.speed });
   steps.push({ type: 'pause', dur: STAGE });
   for (const pt of outer) {
     const c = circleFromPoints(A, pt);
-    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: A, dur: 0.3 });
+    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: A, dur: DUR });
     steps.push({ type: 'pause', dur: PAUSE });
   }
   steps.push({ type: 'pause', dur: STAGE });
   for (const [p1, p2] of allPairs(outer)) {
     const c = circleFromPoints(p1, p2);
-    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: p1, dur: 0.3 });
+    steps.push({ type: 'arc', center: c.center, radius: c.radius, depth: 0, from: p1, dur: DUR });
   }
   steps.push({ type: 'pause', dur: STAGE });
   if (state.level === 1) { steps.push({ type: 'done' }); return steps; }
 
   // Level 2 — extents computed at runtime via step types
   steps.push({ type: 'calcExtent' });
-  steps.push({ type: 'ringArc', depth: 1, dur: 0.3 });
+  steps.push({ type: 'ringArc', depth: 1, dur: DUR });
   steps.push({ type: 'pause', dur: STAGE });
-  steps.push({ type: 'lvl2ProjFade', depth: 1, stagger: 0.07 });
+  steps.push({ type: 'lvl2ProjFade', depth: 1, stagger: 0.07 / state.speed });
   steps.push({ type: 'pause', dur: STAGE });
   steps.push({ type: 'genPairs', depth: 1 });
   steps.push({ type: 'pause', dur: STAGE });
   steps.push({ type: 'calcExtent' });
-  steps.push({ type: 'ringArc', depth: 1, dur: 0.3 });
+  steps.push({ type: 'ringArc', depth: 1, dur: DUR });
   steps.push({ type: 'pause', dur: STAGE });
   if (state.level === 2) { steps.push({ type: 'done' }); return steps; }
 
@@ -581,14 +709,14 @@ function buildSteps() {
   const maxDepthVal = state.level - 1;
   for (let lvl = 3; lvl <= state.level; lvl++) {
     const dep = (lvl - 1) / maxDepthVal;
-    const stagger = Math.max(0.005, 0.06 / (lvl - 1));
+    const stagger = Math.max(0.005, 0.06 / (lvl - 1)) / state.speed;
     steps.push({ type: 'calcExtent' });
     steps.push({ type: 'projAndFade', depth: dep, stagger });
     steps.push({ type: 'pause', dur: STAGE });
     steps.push({ type: 'genPairs', depth: dep });
     steps.push({ type: 'pause', dur: STAGE });
     steps.push({ type: 'calcExtent' });
-    steps.push({ type: 'ringArc', depth: dep, dur: 0.3 });
+    steps.push({ type: 'ringArc', depth: dep, dur: DUR });
     steps.push({ type: 'pause', dur: STAGE });
   }
   steps.push({ type: 'done' });
@@ -640,12 +768,117 @@ function render() {
   for (const p of state.donePoints) {
     drawDot([p[0], p[1]], pointColor(th, p[3] / Math.max(maxDepth, 1), p[2]));
   }
-  document.getElementById('zoom-display').innerHTML =
-    `zoom <span class="hl">${(camera.zoom*100).toFixed(0)}%</span>`;
+  updateHUD();
+  const zd = document.getElementById('zoom-display');
+  if (state.showZoom) {
+    zd.innerHTML = `zoom <span class="hl">${(camera.zoom*100).toFixed(0)}%</span>`;
+    zd.style.display = '';
+  } else {
+    zd.style.display = 'none';
+  }
 }
 
 // ───────────────────────────────────────────────────────
-// STEP EXECUTOR
+// EXPORT
+// ───────────────────────────────────────────────────────
+
+function rgbHex(r, g, b) {
+  return '#' + [r,g,b].map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
+}
+
+function exportSVG() {
+  const th = state.theme;
+  const circles = state.doneCircles;
+  const points = state.donePoints;
+  const maxDepth = circles.length ? Math.max(...circles.map(c => c.depth), 1) : 1;
+
+  let allX = [], allY = [];
+  for (const c of circles) {
+    allX.push(c.center[0] - c.radius, c.center[0] + c.radius);
+    allY.push(c.center[1] - c.radius, c.center[1] + c.radius);
+  }
+  for (const p of points) { allX.push(p[0]); allY.push(p[1]); }
+
+  let minX, maxX, minY, maxY;
+  if (allX.length) {
+    minX = Math.min(...allX); maxX = Math.max(...allX);
+    minY = Math.min(...allY); maxY = Math.max(...allY);
+  } else {
+    minX = minY = 0; maxX = maxY = 100;
+  }
+  const pad = Math.max(maxX - minX, maxY - minY) * 0.05 || 50;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const w = maxX - minX, h = maxY - minY;
+
+  const lines = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${w} ${h}">`,
+    `  <rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="${th.bg}"/>`
+  ];
+  for (const c of circles) {
+    const col = depthColor(th, c.depth / maxDepth);
+    const m = col.match(/rgba?\((\d+),(\d+),(\d+)/);
+    const hex = m ? rgbHex(+m[1], +m[2], +m[3]) : '#888';
+    lines.push(`  <circle cx="${c.center[0]}" cy="${c.center[1]}" r="${c.radius}" fill="none" stroke="${hex}" stroke-width="1"/>`);
+  }
+  for (const p of points) {
+    if (p[2] <= 0) continue;
+    const col = pointColor(th, p[3] / maxDepth, p[2]);
+    const m = col.match(/rgb\((\d+),(\d+),(\d+)/);
+    const hex = m ? rgbHex(+m[1], +m[2], +m[3]) : '#ffc832';
+    lines.push(`  <circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${hex}"/>`);
+  }
+  lines.push('</svg>');
+  downloadBlob(lines.join('\n'), 'construction.svg', 'image/svg+xml');
+  showExportMsg('SVG saved');
+}
+
+function exportPNG() {
+  canvas.toBlob(blob => {
+    downloadBlob(blob, 'construction.png', 'image/png');
+    showExportMsg('PNG saved');
+  });
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function showExportMsg(msg) {
+  const el = document.getElementById('export-msg');
+  if (el) { el.textContent = msg + ' ✓'; setTimeout(() => el.textContent = '', 2000); }
+}
+
+// ───────────────────────────────────────────────────────
+// HUD
+// ───────────────────────────────────────────────────────
+
+function updateHUD() {
+  const lines = [];
+  if (state.showLevel) {
+    let s = 'level  ' + state.level;
+    if (state.showTotalLevels) s += ' / ' + state.level;
+    lines.push(s);
+  } else if (state.showTotalLevels) {
+    lines.push('/ ' + state.level + ' levels');
+  }
+  if (state.showCircleCount) {
+    lines.push('circles  ' + (state.doneCircles.length + (state.animCircle ? 1 : 0)));
+  }
+  if (state.showSpeed) {
+    lines.push('speed  ' + state.speed.toFixed(2) + 'x');
+  }
+  if (state.paused) lines.push('— PAUSED —');
+  document.getElementById('hud').textContent = lines.join('\n');
+}
+
+// ───────────────────────────────────────────────────────
+// STEP SEQUENCER
 // ───────────────────────────────────────────────────────
 
 let animFrameId = null;
@@ -698,6 +931,8 @@ function complete() {
   document.getElementById('level-slider').disabled = false;
   document.getElementById('pts-slider').disabled = false;
   menuBtn.style.display = 'none';
+  exportSvgLook.style.display = 'none';
+  exportPngLook.style.display = 'none';
   completeOverlay.style.display = 'flex';
   render();
   animFrameId = requestAnimationFrame(render);
@@ -878,7 +1113,7 @@ function runStep() {
       const pairSteps = [];
       for (const [p1, p2] of pairs) {
         const c = circleFromPoints(p1, p2);
-        pairSteps.push({ type: 'arc', center: c.center, radius: c.radius, depth, from: p1, dur: 0.3 });
+        pairSteps.push({ type: 'arc', center: c.center, radius: c.radius, depth, from: p1, dur: drawDur() });
       }
       state.steps.splice(state.stepIdx, 0, ...pairSteps);
       scheduleNext(0);
@@ -949,6 +1184,8 @@ choiceMenuBtn.addEventListener('click', resetUI);
 choiceLookBtn.addEventListener('click', () => {
   completeOverlay.style.display = 'none';
   menuBtn.style.display = '';
+  exportSvgLook.style.display = '';
+  exportPngLook.style.display = '';
 });
 
 function resetUI() {
@@ -964,6 +1201,7 @@ function resetUI() {
   state._allPts = [];
   state._digitBuf = '';
   state._digitTs = 0;
+  state._inSettings = false;
   document.getElementById('intro').style.display = '';
   document.getElementById('start-btn').textContent = '▶ START';
   document.getElementById('start-btn').classList.add('prim');
@@ -974,7 +1212,10 @@ function resetUI() {
   document.getElementById('level-slider').disabled = false;
   document.getElementById('pts-slider').disabled = false;
   menuBtn.style.display = 'none';
+  exportSvgLook.style.display = 'none';
+  exportPngLook.style.display = 'none';
   completeOverlay.style.display = 'none';
+  settingsOverlay.style.display = 'none';
   bg.start();
 }
 
@@ -987,13 +1228,108 @@ themeBtn.addEventListener('click', () => {
   }
 });
 
+// ── Settings ──
+
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsBtn     = document.getElementById('settings-btn');
+const sBaseRadius     = document.getElementById('s-base-radius');
+const sBaseRadiusVal  = document.getElementById('s-base-radius-val');
+const sSpeed          = document.getElementById('s-speed');
+const sSpeedVal       = document.getElementById('s-speed-val');
+const sShowCircles    = document.getElementById('s-show-circles');
+const sShowLevel      = document.getElementById('s-show-level');
+const sShowTotalLevels= document.getElementById('s-show-total-levels');
+const sShowZoom       = document.getElementById('s-show-zoom');
+const sShowSpeed      = document.getElementById('s-show-speed');
+
+function openSettings() {
+  sBaseRadius.value = state.baseRadius;
+  sBaseRadiusVal.textContent = state.baseRadius + 'px';
+  sSpeed.value = state.speed;
+  sSpeedVal.textContent = state.speed.toFixed(2) + 'x';
+  sShowCircles.checked = state.showCircleCount;
+  sShowLevel.checked = state.showLevel;
+  sShowTotalLevels.checked = state.showTotalLevels;
+  sShowZoom.checked = state.showZoom;
+  sShowSpeed.checked = state.showSpeed;
+  state._inSettings = true;
+  settingsOverlay.style.display = 'flex';
+}
+
+function closeSettings() {
+  state._inSettings = false;
+  settingsOverlay.style.display = 'none';
+}
+
+settingsBtn.addEventListener('click', openSettings);
+
+settingsOverlay.addEventListener('click', e => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+sBaseRadius.addEventListener('input', () => {
+  state.baseRadius = +sBaseRadius.value;
+  sBaseRadiusVal.textContent = state.baseRadius + 'px';
+});
+
+sSpeed.addEventListener('input', () => {
+  state.speed = +sSpeed.value;
+  sSpeedVal.textContent = state.speed.toFixed(2) + 'x';
+});
+
+sShowCircles.addEventListener('change', () => { state.showCircleCount = sShowCircles.checked; render(); });
+sShowLevel.addEventListener('change', () => { state.showLevel = sShowLevel.checked; render(); });
+sShowTotalLevels.addEventListener('change', () => { state.showTotalLevels = sShowTotalLevels.checked; render(); });
+sShowZoom.addEventListener('change', () => { state.showZoom = sShowZoom.checked; render(); });
+sShowSpeed.addEventListener('change', () => { state.showSpeed = sShowSpeed.checked; render(); });
+
+// ── Export buttons (completion overlay) ──
+
+const choiceSvgBtn = document.getElementById('choice-svg-btn');
+const choicePngBtn = document.getElementById('choice-png-btn');
+choiceSvgBtn.addEventListener('click', exportSVG);
+choicePngBtn.addEventListener('click', exportPNG);
+
+// ── Export buttons (look-around) ──
+
+const exportSvgLook = document.getElementById('export-svg-btn-look');
+const exportPngLook = document.getElementById('export-png-btn-look');
+exportSvgLook.addEventListener('click', exportSVG);
+exportPngLook.addEventListener('click', exportPNG);
+
 document.addEventListener('keydown', e => {
   if (e.key === 'b' || e.key === 'B') themeBtn.click();
   if (e.key === 'p' || e.key === 'P') pauseBtn.click();
-  if (e.key === 'Enter' && !state.running) startBtn.click();
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (state._inSettings) closeSettings();
+    else if (!state.running && !state.done) openSettings();
+    return;
+  }
   if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
+    if (state._inSettings) { closeSettings(); return; }
     if (state.running || state.done) menuBtn.click();
   }
+
+  // Settings panel controls
+  if (state._inSettings) {
+    const rows = ['s-base-radius','s-speed','s-show-circles','s-show-level','s-show-total-levels','s-show-zoom','s-show-speed'];
+    let idx = rows.indexOf(document.activeElement?.id);
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      idx = Math.min(rows.length - 1, (idx < 0 ? -1 : idx) + 1);
+      document.getElementById(rows[idx]).focus();
+    } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      e.preventDefault();
+      idx = Math.max(0, (idx < 0 ? 1 : idx) - 1);
+      document.getElementById(rows[idx]).focus();
+    } else if (e.key === 'Enter') {
+      closeSettings();
+    }
+    return;
+  }
+
+  if (e.key === 'Enter' && !state.running) startBtn.click();
 
   // Intro keyboard controls (only when not running)
   if (!state.running && !state.done) {

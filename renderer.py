@@ -3,6 +3,7 @@ renderer.py — camera, depth-coloured drawing, theme toggle, HUD, UI buttons.
 """
 
 import math
+import time
 import pygame
 
 
@@ -140,6 +141,11 @@ class Renderer:
         self.show_choices     = False
         self.choice_menu_rect = None
         self.choice_look_rect = None
+        self.choice_svg_rect  = None
+        self.choice_png_rect  = None
+
+        self.export_message   = None
+        self.export_msg_timer = 0.0
 
         self.done_circles   = []   # [(world_center, world_radius, depth), …]
         self.done_points    = []   # [[wx, wy, alpha, depth], …]
@@ -151,12 +157,19 @@ class Renderer:
         self.animation_done = False
         self.speed_display  = 1.0   # updated each frame by AnimState
 
-        self._hover_pause       = False
-        self._hover_restart     = False
-        self._hover_toggle      = False
-        self._hover_menu        = False
-        self._hover_choice_menu = False
-        self._hover_choice_look = False
+        self._hover_pause        = False
+        self._hover_restart      = False
+        self._hover_toggle       = False
+        self._hover_menu         = False
+        self._hover_choice_menu  = False
+        self._hover_choice_look  = False
+        self._hover_choice_svg   = False
+        self._hover_choice_png   = False
+        self._hover_export_svg   = False
+        self._hover_export_png   = False
+
+        self.export_svg_rect = None
+        self.export_png_rect = None
 
     def toggle_theme(self):
         self.theme = LIGHT_THEME if self.theme is DARK_THEME else DARK_THEME
@@ -200,6 +213,26 @@ class Renderer:
         if self.animation_done and not self.show_choices:
             self._btn(self.restart_rect, "↺  RESTART", self._hover_restart)
 
+            sw, sh = self.screen.get_size()
+            pad, bh = self._PAD, self._BTN_H
+            bw = 120
+            ex = sw // 2 - bw - 6
+            ey = sh - pad - bh
+            self.export_svg_rect = pygame.Rect(ex, ey, bw, bh)
+            self.export_png_rect = pygame.Rect(ex + bw + 12, ey, bw, bh)
+            self._btn(self.export_svg_rect, "EXPORT SVG", self._hover_export_svg)
+            self._btn(self.export_png_rect, "EXPORT PNG", self._hover_export_png)
+
+            if self.export_message:
+                elapsed = time.time() - self.export_msg_timer
+                if elapsed < 2.0:
+                    alpha = max(0, round(255 * (1.0 - elapsed / 2.0)))
+                    msg = self.font.render(self.export_message, True, (140, 255, 140))
+                    msg.set_alpha(alpha)
+                    mx = sw // 2 - msg.get_width() // 2
+                    my = ey - 24
+                    self.screen.blit(msg, (mx, my))
+
         if self.animation_done and self.show_choices:
             self._draw_completion_choices()
 
@@ -210,17 +243,33 @@ class Renderer:
         self.screen.blit(overlay, (0, 0))
 
         lbl = self.font.render("CONSTRUCTION COMPLETE", True, (255, 220, 50))
-        self.screen.blit(lbl, (sw // 2 - lbl.get_width() // 2, sh // 2 - 60))
+        self.screen.blit(lbl, (sw // 2 - lbl.get_width() // 2, sh // 2 - 100))
 
         btn_w, btn_h, gap = 200, 46, 24
         cx, cy = sw // 2, sh // 2 + 6
+        row1_y = cy - btn_h // 2
         total  = btn_w * 2 + gap
 
-        self.choice_menu_rect = pygame.Rect(cx - total // 2, cy - btn_h // 2, btn_w, btn_h)
-        self.choice_look_rect = pygame.Rect(cx - total // 2 + btn_w + gap, cy - btn_h // 2, btn_w, btn_h)
+        self.choice_menu_rect = pygame.Rect(cx - total // 2, row1_y, btn_w, btn_h)
+        self.choice_look_rect = pygame.Rect(cx - total // 2 + btn_w + gap, row1_y, btn_w, btn_h)
 
         self._btn(self.choice_menu_rect, "← MAIN MENU", self._hover_choice_menu)
         self._btn(self.choice_look_rect, "LOOK AROUND",  self._hover_choice_look)
+
+        row2_y = row1_y + btn_h + gap
+        self.choice_svg_rect = pygame.Rect(cx - total // 2, row2_y, btn_w, btn_h)
+        self.choice_png_rect = pygame.Rect(cx - total // 2 + btn_w + gap, row2_y, btn_w, btn_h)
+
+        self._btn(self.choice_svg_rect, "EXPORT SVG", self._hover_choice_svg)
+        self._btn(self.choice_png_rect, "EXPORT PNG", self._hover_choice_png)
+
+        if self.export_message:
+            elapsed = time.time() - self.export_msg_timer
+            if elapsed < 2.0:
+                alpha = max(0, round(255 * (1.0 - elapsed / 2.0)))
+                msg = self.font.render(self.export_message, True, (140, 255, 140))
+                msg.set_alpha(alpha)
+                self.screen.blit(msg, (sw // 2 - msg.get_width() // 2, row2_y + btn_h + 20))
 
     def _draw_hud(self):
         fg    = self.theme["hud_fg"]
@@ -263,8 +312,19 @@ class Renderer:
                                            self.choice_menu_rect.collidepoint(mouse_pos))
             self._hover_choice_look = bool(self.choice_look_rect and
                                            self.choice_look_rect.collidepoint(mouse_pos))
+            self._hover_choice_svg  = bool(self.choice_svg_rect and
+                                           self.choice_svg_rect.collidepoint(mouse_pos))
+            self._hover_choice_png  = bool(self.choice_png_rect and
+                                           self.choice_png_rect.collidepoint(mouse_pos))
+            self._hover_export_svg  = False
+            self._hover_export_png  = False
         else:
             self._hover_choice_menu = self._hover_choice_look = False
+            self._hover_choice_svg  = self._hover_choice_png  = False
+            self._hover_export_svg  = self.animation_done and bool(self.export_svg_rect and
+                                            self.export_svg_rect.collidepoint(mouse_pos))
+            self._hover_export_png  = self.animation_done and bool(self.export_png_rect and
+                                            self.export_png_rect.collidepoint(mouse_pos))
 
     # ── main redraw ───────────────────────────
 
