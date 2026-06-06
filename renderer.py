@@ -211,17 +211,22 @@ class Renderer:
             self._btn(self.pause_rect, f"[P] {icon}", self._hover_pause)
 
         if self.animation_done and not self.show_choices:
-            self._btn(self.restart_rect, "↺  RESTART", self._hover_restart)
-
             sw, sh = self.screen.get_size()
             pad, bh = self._PAD, self._BTN_H
+
+            rw = 180
             bw = 120
-            ex = sw // 2 - bw - 6
-            ey = sh - pad - bh
-            self.export_svg_rect = pygame.Rect(ex, ey, bw, bh)
-            self.export_png_rect = pygame.Rect(ex + bw + 12, ey, bw, bh)
-            self._btn(self.export_svg_rect, "EXPORT SVG", self._hover_export_svg)
-            self._btn(self.export_png_rect, "EXPORT PNG", self._hover_export_png)
+            gap = 12
+            total = bw + gap + rw + gap + bw
+            left = sw // 2 - total // 2
+
+            self.export_svg_rect = pygame.Rect(left, sh - pad - bh, bw, bh)
+            self.restart_rect = pygame.Rect(left + bw + gap, sh - pad - bh, rw, bh)
+            self.export_png_rect = pygame.Rect(left + bw + gap + rw + gap, sh - pad - bh, bw, bh)
+
+            self._btn(self.export_svg_rect, "DOWNLOAD SVG", self._hover_export_svg)
+            self._btn(self.restart_rect, "↺  RESTART", self._hover_restart)
+            self._btn(self.export_png_rect, "DOWNLOAD PNG", self._hover_export_png)
 
             if self.export_message:
                 elapsed = time.time() - self.export_msg_timer
@@ -230,7 +235,7 @@ class Renderer:
                     msg = self.font.render(self.export_message, True, (140, 255, 140))
                     msg.set_alpha(alpha)
                     mx = sw // 2 - msg.get_width() // 2
-                    my = ey - 24
+                    my = sh - pad - bh - 24
                     self.screen.blit(msg, (mx, my))
 
         if self.animation_done and self.show_choices:
@@ -260,8 +265,8 @@ class Renderer:
         self.choice_svg_rect = pygame.Rect(cx - total // 2, row2_y, btn_w, btn_h)
         self.choice_png_rect = pygame.Rect(cx - total // 2 + btn_w + gap, row2_y, btn_w, btn_h)
 
-        self._btn(self.choice_svg_rect, "EXPORT SVG", self._hover_choice_svg)
-        self._btn(self.choice_png_rect, "EXPORT PNG", self._hover_choice_png)
+        self._btn(self.choice_svg_rect, "DOWNLOAD SVG", self._hover_choice_svg)
+        self._btn(self.choice_png_rect, "DOWNLOAD PNG", self._hover_choice_png)
 
         if self.export_message:
             elapsed = time.time() - self.export_msg_timer
