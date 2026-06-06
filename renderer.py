@@ -119,10 +119,12 @@ class Renderer:
     _BTN_H = 36
     _PAD   = 20
 
-    def __init__(self, screen, camera, level):
+    def __init__(self, screen, camera, cfg):
+        from config import Config
         self.screen  = screen
         self.camera  = camera
-        self.level   = level
+        self.level   = cfg.level
+        self.cfg     = cfg
         self.theme   = DARK_THEME
         self.font    = pygame.font.SysFont("monospace", 16)
         self.font_sm = pygame.font.SysFont("monospace", 13)
@@ -222,15 +224,28 @@ class Renderer:
 
     def _draw_hud(self):
         fg    = self.theme["hud_fg"]
+        cfg   = self.cfg
         count = len(self.done_circles) + (1 if self.anim_circle else 0)
-        lines = [
-            f"LEVEL {self.level}",
-            f"circles  {count}",
-            f"speed  {self.speed_display:.2f}x  [[ ]]",
-            f"zoom  {self.camera.zoom:.2f}x  [scroll]",
-        ]
+        lines = []
+
+        if cfg.show_level:
+            suffix = f" / {self.level}" if cfg.show_total_levels else ""
+            lines.append(f"level  {self.level}{suffix}")
+        elif cfg.show_total_levels:
+            lines.append(f"/ {self.level} levels")
+
+        if cfg.show_circle_count:
+            lines.append(f"circles  {count}")
+
+        if cfg.show_speed:
+            lines.append(f"speed  {self.speed_display:.2f}x  [[ ]]")
+
+        if cfg.show_zoom:
+            lines.append(f"zoom  {self.camera.zoom:.2f}x  [scroll]")
+
         if self.paused:
             lines.append("— PAUSED —")
+
         for i, line in enumerate(lines):
             lbl = self.font_sm.render(line, True, fg)
             self.screen.blit(lbl, (self._PAD, self._PAD + self._BTN_H + 8 + i * 18))

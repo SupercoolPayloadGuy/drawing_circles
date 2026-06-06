@@ -21,6 +21,8 @@ def ease_in_out(t):
 
 def draw_duration(level):
     """Hyperbolic scaling: fast at high levels, never below floor."""
+    if hasattr(level, 'level'):   # accept a Config object passed by mistake
+        level = level.level
     return max(0.025, 0.30 / (1.0 + 0.35 * (level - 1)))
 
 

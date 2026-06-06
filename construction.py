@@ -27,16 +27,17 @@ _STAGE      = 0.28   # longer gap between construction stages
 # PUBLIC ENTRY POINT
 # ──────────────────────────────────────────────
 
-def run(level: int, screen: pygame.Surface, clock: pygame.time.Clock,
-        point_count: int = 4) -> None:
+def run(cfg, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
     """
-    Animate the circle construction up to `level`.
+    Animate the circle construction up to `cfg.level`.
     Returns normally on completion (user chose Look Around).
     Raises RestartSignal if the user returns to the menu.
     """
-    origin = (WIDTH / 2, HEIGHT / 2)
-    camera   = Camera(WIDTH, HEIGHT, origin)
-    renderer = Renderer(screen, camera, level)
+    level       = cfg.level
+    point_count = cfg.point_count
+    origin      = (WIDTH / 2, HEIGHT / 2)
+    camera      = Camera(WIDTH, HEIGHT, origin)
+    renderer    = Renderer(screen, camera, cfg)
     renderer.animation_done = False
 
     pygame.display.set_caption(
