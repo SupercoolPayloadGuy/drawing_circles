@@ -1,42 +1,27 @@
 """
 animation.py — timing, easing, pause/play, animated circle drawing,
                point fade-in, auto-zoom, draw_all_pairs.
-
-Each circle and point now carries a `depth` value (float ≥ 0) that
-the renderer uses for colour grading.
 """
 
 import math
 import time
 import pygame
 
-from geometry import (
-    angle_on_circle, farthest_extent, circle_from_points, all_pairs
-)
+from geometry import angle_on_circle, farthest_extent, circle_from_points, all_pairs
 from renderer import RESTART_EVENT
 
 
 # ──────────────────────────────────────────────
-# EASING
+# EASING & DURATION
 # ──────────────────────────────────────────────
 
 def ease_in_out(t):
     return t * t * (3 - 2 * t)
 
 
-# ──────────────────────────────────────────────
-# DURATION SCALING
-# ──────────────────────────────────────────────
-
 def draw_duration(level):
-    """
-    Hyperbolic scaling: fast at high levels, never below floor.
-    L1=0.30  L2=0.22  L3=0.15  L5=0.09  L10=0.05  L20+=0.025
-    """
-    base  = 0.30
-    k     = 0.35
-    floor = 0.025
-    return max(floor, base / (1.0 + k * (level - 1)))
+    """Hyperbolic scaling: fast at high levels, never below floor."""
+    return max(0.025, 0.30 / (1.0 + 0.35 * (level - 1)))
 
 
 # ──────────────────────────────────────────────
@@ -49,10 +34,9 @@ class AnimState:
         self.clock         = clock
         self.draw_duration = draw_duration(level)
         self.point_fade    = 0.38
-
-        # Same list objects as renderer — mutations are reflected immediately
-        self.done_circles = renderer.done_circles   # [(wc, wr, depth), …]
-        self.done_points  = renderer.done_points    # [[wx,wy,alpha,depth], …]
+        # Same list objects as renderer — mutations reflected immediately.
+        self.done_circles  = renderer.done_circles
+        self.done_points   = renderer.done_points
 
 
 # ──────────────────────────────────────────────
@@ -60,14 +44,17 @@ class AnimState:
 # ──────────────────────────────────────────────
 
 def pump(state):
+    """Process events; return True if a restart was requested."""
     r = state.renderer
     r.update_hover(pygame.mouse.get_pos())
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            pygame.quit(); raise SystemExit
+            pygame.quit()
+            raise SystemExit
 
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_b,):
+            if event.key == pygame.K_b:
                 r.toggle_theme()
             elif event.key == pygame.K_p:
                 r.paused = not r.paused
@@ -93,7 +80,7 @@ def pump(state):
             r.camera.scroll(event.y)
 
         if event.type == RESTART_EVENT:
-            return True   # signal restart to caller
+            return True
 
     return False
 
@@ -102,7 +89,7 @@ def pump(state):
 # AUTO-ZOOM
 # ──────────────────────────────────────────────
 
-def auto_zoom(state, origin):
+def _auto_zoom(state, origin):
     extent = farthest_extent(origin, [(c, r) for c, r, _ in state.done_circles])
     if extent > 0:
         state.renderer.camera.fit_radius(extent, 0.88)
@@ -112,25 +99,23 @@ def auto_zoom(state, origin):
 # ANIMATE CIRCLE
 # ──────────────────────────────────────────────
 
-def animate_circle(state, center, radius, depth=0.0,
-                   from_point=None, origin=None):
+def animate_circle(state, center, radius, depth=0.0, from_point=None, origin=None):
     r = state.renderer
     r.anim_circle    = (center, radius, depth)
     r.anim_t         = 0.0
     r.anim_start_ang = (angle_on_circle(center, from_point)
                         if from_point is not None else -math.pi / 2)
 
-    # Track elapsed excluding paused time
     draw_t  = 0.0
     prev_ts = time.time()
 
     while True:
-        now     = time.time()
+        now = time.time()
         if not r.paused:
             draw_t += now - prev_ts
         prev_ts = now
 
-        raw    = min(draw_t / state.draw_duration, 1.0)
+        raw      = min(draw_t / state.draw_duration, 1.0)
         r.anim_t = ease_in_out(raw)
         r.redraw()
         if pump(state):
@@ -144,11 +129,11 @@ def animate_circle(state, center, radius, depth=0.0,
     r.anim_t      = 0.0
 
     if origin is not None:
-        auto_zoom(state, origin)
+        _auto_zoom(state, origin)
 
 
 # ──────────────────────────────────────────────
-# PAUSE (animation stage gap)
+# PAUSE
 # ──────────────────────────────────────────────
 
 def pause(state, seconds):
@@ -174,27 +159,28 @@ def add_points_fade(state, pts, depth=0.0, stagger=0.06):
     for pt in pts:
         state.done_points.append([pt[0], pt[1], 0, depth])
 
-    idxs   = list(range(base_idx, base_idx + len(pts)))
-    # Each point gets its own elapsed counter (independent of wall clock when paused)
-    timers = [-(i * stagger) for i in range(len(pts))]   # negative = not started yet
-    flags  = [False] * len(pts)
-    dur    = state.point_fade
+    n       = len(pts)
+    timers  = [-(i * stagger) for i in range(n)]
+    flags   = [False] * n
+    dur     = state.point_fade
     prev_ts = time.time()
 
     while not all(flags):
         now  = time.time()
         dt   = (now - prev_ts) if not state.renderer.paused else 0.0
         prev_ts = now
-        for i, idx in enumerate(idxs):
+
+        for i in range(n):
             if flags[i]:
                 continue
             timers[i] += dt
             if timers[i] < 0:
                 continue
             raw = min(timers[i] / dur, 1.0)
-            state.done_points[idx][2] = round(ease_in_out(raw) * 255)
+            state.done_points[base_idx + i][2] = round(ease_in_out(raw) * 255)
             if raw >= 1.0:
                 flags[i] = True
+
         state.renderer.redraw()
         if pump(state):
             raise _RestartSignal()
@@ -217,8 +203,6 @@ def draw_all_pairs(state, points, depth=0.0, origin=None):
 # ──────────────────────────────────────────────
 
 class _RestartSignal(Exception):
-    """Raised internally to unwind the call stack on restart."""
     pass
 
-# Re-export so main.py can catch it
 RestartSignal = _RestartSignal
