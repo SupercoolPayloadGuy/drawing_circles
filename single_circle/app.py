@@ -3,26 +3,65 @@ app.py — animation state machine and main loop for single_circle.
 """
 
 import math
+import time
+
 import pygame
 
-from config   import WIDTH, HEIGHT, N, RADIUS, FPS
+from config   import WIDTH, HEIGHT, RADIUS, FPS, LINE_WIDTH, BG
 from config   import CIRCLE_DRAW_SPEED, POINT_APPEAR_DELAY, Config
 from config   import DRAW_MAIN_CIRCLE, SHOW_POINTS, DRAW_FLOWER, DONE
 from geometry import circle_from_points
-from renderer import create_mask, render_frame
+from renderer import create_mask, render_frame, export_png, export_svg
+from renderer import draw_button, draw_hint
 from intro    import run_intro
+
+
+BTN_W = 130
+BTN_H = 44
+BTN_GAP = 16
+BTN_Y = HEIGHT - 80
+BTN_ACTIONS = ["menu", "look", "png", "svg"]
+BTN_LABELS = ["MENU", "LOOK", "EXPORT PNG", "EXPORT SVG"]
+
+
+def _make_buttons():
+    total_w = len(BTN_ACTIONS) * BTN_W + (len(BTN_ACTIONS) - 1) * BTN_GAP
+    sx = (WIDTH - total_w) // 2
+    btns = []
+    for i, (act, lbl) in enumerate(zip(BTN_ACTIONS, BTN_LABELS)):
+        x = sx + i * (BTN_W + BTN_GAP)
+        btns.append({"rect": pygame.Rect(x, BTN_Y, BTN_W, BTN_H),
+                      "action": act, "label": lbl})
+    return btns
+
+
+def _export_png(screen):
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    fn = f"circle_flower_{ts}.png"
+    export_png(screen, fn)
+    return fn
+
+
+def _export_svg(center, points, circles, circle_count, mr, scheme):
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    fn = f"circle_flower_{ts}.svg"
+    export_svg(fn, center, points, circles, list(range(circle_count)),
+               mr, circle_count, LINE_WIDTH, scheme)
+    return fn
 
 
 def run_animation(screen, clock, cfg: Config):
     center = (WIDTH // 2, HEIGHT // 2)
     speed = cfg.speed
+    mr = cfg.main_radius
 
+    n = cfg.point_count
     points = [
         (
-            center[0] + RADIUS * math.cos(-math.pi / 2 + i * (2 * math.pi / N)),
-            center[1] + RADIUS * math.sin(-math.pi / 2 + i * (2 * math.pi / N)),
+            center[0] + mr * math.cos(-math.pi / 2 + i * (2 * math.pi / n)),
+            center[1] + mr * math.sin(-math.pi / 2 + i * (2 * math.pi / n)),
         )
-        for i in range(N)
+        for i in range(n)
     ]
 
     circles = [
@@ -42,6 +81,18 @@ def run_animation(screen, clock, cfg: Config):
     current_progress = 0
     finished_circles = []
 
+    # Camera / look-around
+    camera_active = False
+    captured = None
+    cam_off_x = 0
+    cam_off_y = 0
+    cam_zoom = 1.0
+    dragging = False
+    drag_start = None
+
+    buttons = _make_buttons()
+    clean_frame = None
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000
@@ -49,10 +100,69 @@ def run_animation(screen, clock, cfg: Config):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    return
+                    if camera_active:
+                        camera_active = False
+                        cam_zoom = 1.0
+                        cam_off_x = cam_off_y = 0
+                    else:
+                        return
+                elif event.key == pygame.K_p:
+                    print(f"exported {_export_png(screen)}")
+                elif event.key == pygame.K_s:
+                    print(f"exported {_export_svg(center, points, circles, current_circle, mr, cfg.color_scheme)}")
 
+            if stage == DONE or camera_active:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    pos = event.pos
+                    if camera_active:
+                        dragging = True
+                        drag_start = pos
+                    else:
+                        for btn in buttons:
+                            if btn["rect"].collidepoint(pos):
+                                act = btn["action"]
+                                if act == "menu":
+                                    return
+                                elif act == "look":
+                                    if clean_frame is not None:
+                                        captured = clean_frame
+                                        camera_active = True
+                                        cam_zoom = 1.0
+                                        cam_off_x = cam_off_y = 0
+                                elif act == "png":
+                                    print(f"exported {_export_png(screen)}")
+                                elif act == "svg":
+                                    print(f"exported {_export_svg(center, points, circles, current_circle, mr, cfg.color_scheme)}")
+
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    dragging = False
+
+                elif event.type == pygame.MOUSEMOTION and dragging and camera_active:
+                    dx = event.pos[0] - drag_start[0]
+                    dy = event.pos[1] - drag_start[1]
+                    cam_off_x += dx
+                    cam_off_y += dy
+                    drag_start = event.pos
+
+                elif event.type == pygame.MOUSEWHEEL and camera_active:
+                    mx, my = pygame.mouse.get_pos()
+                    zf = 1.1 if event.y > 0 else 0.9
+                    sw = int(WIDTH * cam_zoom)
+                    sh = int(HEIGHT * cam_zoom)
+                    img_x = mx - (WIDTH // 2 - sw // 2 + int(cam_off_x))
+                    img_y = my - (HEIGHT // 2 - sh // 2 + int(cam_off_y))
+                    frac_x = img_x / sw if sw > 0 else 0.5
+                    frac_y = img_y / sh if sh > 0 else 0.5
+                    cam_zoom = max(0.1, min(10.0, cam_zoom * zf))
+                    nsw = int(WIDTH * cam_zoom)
+                    nsh = int(HEIGHT * cam_zoom)
+                    cam_off_x = mx - (WIDTH // 2 - nsw // 2 + frac_x * nsw)
+                    cam_off_y = my - (HEIGHT // 2 - nsh // 2 + frac_y * nsh)
+
+        # ── update ────────────────────────────────────────────────
         if stage == DRAW_MAIN_CIRCLE:
             main_progress += CIRCLE_DRAW_SPEED * speed * dt
             if main_progress >= 360:
@@ -78,11 +188,31 @@ def run_animation(screen, clock, cfg: Config):
             else:
                 stage = DONE
 
-        render_frame(screen, drawing, mask, center,
-                     main_progress, finished_circles,
-                     current_circle, circles,
-                     current_progress, stage,
-                     points, visible_points)
+        # ── render ────────────────────────────────────────────────
+        if camera_active and captured is not None:
+            screen.fill(BG)
+            w, h = captured.get_size()
+            sw = int(w * cam_zoom)
+            sh = int(h * cam_zoom)
+            scaled = pygame.transform.smoothscale(captured, (sw, sh))
+            screen.blit(scaled, (WIDTH // 2 - sw // 2 + int(cam_off_x),
+                                 HEIGHT // 2 - sh // 2 + int(cam_off_y)))
+            for btn in buttons:
+                draw_button(screen, btn["rect"], btn["label"])
+            draw_hint(screen, "drag to pan  ·  scroll to zoom  ·  ESC to exit")
+        else:
+            render_frame(screen, drawing, mask, center,
+                         main_progress, finished_circles,
+                         current_circle, circles,
+                         current_progress, stage,
+                         points, visible_points,
+                         cfg.color_scheme, cfg.show_circle_count,
+                         cfg.show_progress_bar)
+
+            if stage == DONE and not camera_active:
+                clean_frame = screen.copy()
+                for btn in buttons:
+                    draw_button(screen, btn["rect"], btn["label"])
 
         pygame.display.flip()
 

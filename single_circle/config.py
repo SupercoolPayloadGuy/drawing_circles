@@ -20,6 +20,8 @@ WHITE = (255, 255, 255)
 
 LINE_WIDTH = 2
 
+COLOR_SCHEMES = ["rainbow", "warm", "cool", "mono", "sunset"]
+
 # Stage constants
 DRAW_MAIN_CIRCLE = 0
 SHOW_POINTS      = 1
@@ -30,3 +32,8 @@ DONE             = 3
 @dataclass
 class Config:
     speed: float = 1.0
+    point_count: int = 24
+    main_radius: int = 350
+    color_scheme: str = "rainbow"
+    show_circle_count: bool = True
+    show_progress_bar: bool = True
