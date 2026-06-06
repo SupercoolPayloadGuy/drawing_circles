@@ -13,7 +13,7 @@ body{display:flex;flex-direction:column;
      transition:background .25s}
 
 #canvas-wrap{flex:1;position:relative;overflow:hidden}
-#canvas-wrap canvas{display:block;width:100%;height:100%}
+#canvas-wrap canvas{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
 
 /* ── INTRO OVERLAY ── */
 #intro{position:absolute;top:0;left:0;width:100%;height:100%;
@@ -143,6 +143,7 @@ body.light #hud{color:#999}
 <body>
 
 <div id="canvas-wrap">
+  <canvas id="b"></canvas>
   <canvas id="c"></canvas>
 
   <div id="intro">
@@ -414,78 +415,56 @@ function pointColor(theme, depth01, alpha = 255) {
 // CANVAS SETUP
 // ───────────────────────────────────────────────────────
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
+const canvasFg = document.getElementById('c');
+const ctxFg = canvasFg.getContext('2d');
+const canvasBg = document.getElementById('b');
+const ctxBg = canvasBg.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
 
 let W, H, cx, cy;
+let _staticCircleCount = 0;
 
-// Offscreen cache for already-drawn circles (avoid redrawing every frame)
-let _cacheCanvas = null;
-let _cacheCtx = null;
-let _cacheZoom = null;
-let _cachePanX = null;
-let _cachePanY = null;
-let _cacheCount = 0;
-
-function _invalidateCache() {
-  _cacheCanvas = null;
-}
-
-function _syncCache() {
-  const dpr = window.devicePixelRatio || 1;
-  if (!_cacheCanvas || _cacheCanvas.width !== canvas.width || _cacheCanvas.height !== canvas.height) {
-    const dpr = window.devicePixelRatio || 1;
-    _cacheCanvas = document.createElement('canvas');
-    _cacheCanvas.width = canvas.width;
-    _cacheCanvas.height = canvas.height;
-    _cacheCtx = _cacheCanvas.getContext('2d');
-    _cacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    _cacheZoom = null;
-    _cacheCount = 0;
-  }
-
-  if (_cacheZoom !== camera.zoom || _cachePanX !== camera.panX || _cachePanY !== camera.panY) {
-    _cacheCtx.clearRect(0, 0, _cacheCanvas.width, _cacheCanvas.height);
-    _cacheCount = 0;
-    _cacheZoom = camera.zoom;
-    _cachePanX = camera.panX;
-    _cachePanY = camera.panY;
-  }
-
-  if (_cacheCount < state.doneCircles.length) {
-    const newCircles = state.doneCircles.slice(_cacheCount);
-    const th = state.theme;
-    const maxDepth = state.doneCircles.length
-      ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
-    for (const c of newCircles) {
-      const alpha = Math.round(220 - c.depth * 100);
-      const col = depthColor(th, c.depth / maxDepth, Math.max(60, alpha));
-      const sx = (c.center[0] - camera.origin[0]) * camera.zoom + cx + camera.panX;
-      const sy = (c.center[1] - camera.origin[1]) * camera.zoom + cy + camera.panY;
-      const sr = c.radius * camera.zoom;
-      if (sr >= 1) {
-        _cacheCtx.beginPath();
-        _cacheCtx.arc(sx, sy, sr, 0, TAU);
-        _cacheCtx.strokeStyle = col;
-        _cacheCtx.stroke();
-      }
-    }
-    _cacheCount = state.doneCircles.length;
-  }
-}
-
-function resize() {
+function _initCanvases() {
   const rect = wrap.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   W = rect.width; H = rect.height;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const c of [canvasBg, canvasFg]) {
+    c.width = W * dpr;
+    c.height = H * dpr;
+    c.style.width = W + 'px';
+    c.style.height = H + 'px';
+  }
+  ctxFg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx = W / 2; cy = H / 2;
-  _invalidateCache();
+}
+
+function _redrawStatic() {
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.fillStyle = state.theme.bg;
+  ctxBg.fillRect(0, 0, W, H);
+  const maxDepth = state.doneCircles.length
+    ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
+  for (const c of state.doneCircles) {
+    const alpha = Math.round(220 - c.depth * 100);
+    const col = depthColor(state.theme, c.depth / maxDepth, Math.max(60, alpha));
+    const sx = (c.center[0] - camera.origin[0]) * camera.zoom + cx + camera.panX;
+    const sy = (c.center[1] - camera.origin[1]) * camera.zoom + cy + camera.panY;
+    const sr = c.radius * camera.zoom;
+    if (sr >= 1) {
+      ctxBg.beginPath();
+      ctxBg.arc(sx, sy, sr, 0, TAU);
+      ctxBg.strokeStyle = col;
+      ctxBg.stroke();
+    }
+  }
+  _staticCircleCount = state.doneCircles.length;
+}
+
+function resize() {
+  _initCanvases();
+  _redrawStatic();
 }
 window.addEventListener('resize', resize);
 
@@ -532,8 +511,8 @@ const bg = {
 
   draw(t) {
     const th = state.theme;
-    ctx.fillStyle = th.bg;
-    ctx.fillRect(0, 0, W, H);
+    ctxFg.fillStyle = th.bg;
+    ctxFg.fillRect(0, 0, W, H);
 
     const BR = 90;
     const N = state.pointCount;
@@ -547,17 +526,17 @@ const bg = {
       const dep = i / Math.max(ringsToShow - 1, 1);
       const col = previewColor(dep);
       const alpha = Math.max(20, 140 - i * 22);
-      ctx.beginPath();
-      ctx.arc(cx, cy, rr, 0, TAU);
-      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha/255})`;
-      ctx.stroke();
+      ctxFg.beginPath();
+      ctxFg.arc(cx, cy, rr, 0, TAU);
+      ctxFg.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha/255})`;
+      ctxFg.stroke();
     }
 
     // base circle
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, TAU);
-    ctx.strokeStyle = `rgba(90,90,90,${170/255})`;
-    ctx.stroke();
+    ctxFg.beginPath();
+    ctxFg.arc(cx, cy, r, 0, TAU);
+    ctxFg.strokeStyle = `rgba(90,90,90,${170/255})`;
+    ctxFg.stroke();
 
     // points
     const pts = [];
@@ -570,10 +549,10 @@ const bg = {
     for (const [px, py] of pts) {
       const mr = Math.hypot(px - cx, py - cy) / 2;
       const mcx = (px + cx) / 2, mcy = (py + cy) / 2;
-      ctx.beginPath();
-      ctx.arc(mcx, mcy, mr, 0, TAU);
-      ctx.strokeStyle = `rgba(65,65,65,${80/255})`;
-      ctx.stroke();
+      ctxFg.beginPath();
+      ctxFg.arc(mcx, mcy, mr, 0, TAU);
+      ctxFg.strokeStyle = `rgba(65,65,65,${80/255})`;
+      ctxFg.stroke();
     }
 
     // neighbor pair circles
@@ -582,10 +561,10 @@ const bg = {
       const [p2x, p2y] = pts[(i + 1) % N];
       const mr = Math.hypot(p1x - p2x, p1y - p2y) / 2;
       const mcx = (p1x + p2x) / 2, mcy = (p1y + p2y) / 2;
-      ctx.beginPath();
-      ctx.arc(mcx, mcy, mr, 0, TAU);
-      ctx.strokeStyle = `rgba(55,55,55,${60/255})`;
-      ctx.stroke();
+      ctxFg.beginPath();
+      ctxFg.arc(mcx, mcy, mr, 0, TAU);
+      ctxFg.strokeStyle = `rgba(55,55,55,${60/255})`;
+      ctxFg.stroke();
     }
 
     // expanding wave
@@ -593,21 +572,21 @@ const bg = {
     const phase = (t % wavePeriod) / wavePeriod;
     const waveR = r * (1 + phase * 2.8);
     const wCol = previewColor(phase);
-    ctx.beginPath();
-    ctx.arc(cx, cy, waveR, 0, TAU);
-    ctx.strokeStyle = `rgba(${wCol[0]},${wCol[1]},${wCol[2]},${Math.round((1-phase)*55)/255})`;
-    ctx.stroke();
+    ctxFg.beginPath();
+    ctxFg.arc(cx, cy, waveR, 0, TAU);
+    ctxFg.strokeStyle = `rgba(${wCol[0]},${wCol[1]},${wCol[2]},${Math.round((1-phase)*55)/255})`;
+    ctxFg.stroke();
 
     // dots for each point
     for (const [px, py] of pts) {
-      ctx.beginPath(); ctx.arc(px, py, 4, 0, TAU);
-      ctx.fillStyle = `rgba(255,220,50,${170/255})`;
-      ctx.fill();
+      ctxFg.beginPath(); ctxFg.arc(px, py, 4, 0, TAU);
+      ctxFg.fillStyle = `rgba(255,220,50,${170/255})`;
+      ctxFg.fill();
     }
     // center dot
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, TAU);
-    ctx.fillStyle = `rgba(255,220,50,${200/255})`;
-    ctx.fill();
+    ctxFg.beginPath(); ctxFg.arc(cx, cy, 4, 0, TAU);
+    ctxFg.fillStyle = `rgba(255,220,50,${200/255})`;
+    ctxFg.fill();
   },
 };
 
@@ -789,32 +768,51 @@ function drawCircle(center, radius, color) {
   const [sx, sy] = camera.w2s(center);
   const sr = camera.r2s(radius);
   if (sr < 1) return;
-  ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU);
-  ctx.strokeStyle = color;
-  ctx.stroke();
+  ctxFg.beginPath(); ctxFg.arc(sx, sy, sr, 0, TAU);
+  ctxFg.strokeStyle = color;
+  ctxFg.stroke();
 }
 function drawArc(center, radius, startAngle, sweep, color) {
   const [sx, sy] = camera.w2s(center);
   const sr = camera.r2s(radius);
   if (sr < 1 || sweep <= 0) return;
-  ctx.beginPath(); ctx.arc(sx, sy, sr, startAngle, startAngle + TAU * sweep);
-  ctx.strokeStyle = color;
-  ctx.stroke();
+  ctxFg.beginPath(); ctxFg.arc(sx, sy, sr, startAngle, startAngle + TAU * sweep);
+  ctxFg.strokeStyle = color;
+  ctxFg.stroke();
 }
 function drawDot(pt, color, r = 5) {
   const [sx, sy] = camera.w2s(pt);
-  ctx.beginPath(); ctx.arc(sx, sy, r, 0, TAU);
-  ctx.fillStyle = color;
-  ctx.fill();
+  ctxFg.beginPath(); ctxFg.arc(sx, sy, r, 0, TAU);
+  ctxFg.fillStyle = color;
+  ctxFg.fill();
 }
 
 function render() {
   const th = state.theme;
-  ctx.fillStyle = th.bg;
-  ctx.fillRect(0, 0, W, H);
 
-  _syncCache();
-  ctx.drawImage(_cacheCanvas, 0, 0);
+  // Draw newly finished circles to the static canvas once
+  if (_staticCircleCount < state.doneCircles.length) {
+    const newCircles = state.doneCircles.slice(_staticCircleCount);
+    const maxDepth = state.doneCircles.length
+      ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
+    for (const c of newCircles) {
+      const alpha = Math.round(220 - c.depth * 100);
+      const col = depthColor(th, c.depth / maxDepth, Math.max(60, alpha));
+      const sx = (c.center[0] - camera.origin[0]) * camera.zoom + cx + camera.panX;
+      const sy = (c.center[1] - camera.origin[1]) * camera.zoom + cy + camera.panY;
+      const sr = c.radius * camera.zoom;
+      if (sr >= 1) {
+        ctxBg.beginPath();
+        ctxBg.arc(sx, sy, sr, 0, TAU);
+        ctxBg.strokeStyle = col;
+        ctxBg.stroke();
+      }
+    }
+    _staticCircleCount = state.doneCircles.length;
+  }
+
+  // Foreground layer: clear transparently, draw animated elements
+  ctxFg.clearRect(0, 0, W, H);
 
   const maxDepth = state.doneCircles.length
     ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
@@ -892,7 +890,7 @@ function exportSVG() {
 }
 
 function exportPNG() {
-  canvas.toBlob(blob => {
+  canvasBg.toBlob(blob => {
     downloadBlob(blob, 'construction.png', 'image/png');
     showExportMsg('PNG saved');
   });
@@ -958,6 +956,8 @@ function startConstruction() {
   const r = farthestExtent(state.origin, [{ center: state.origin, radius: state.baseRadius }]);
   camera.fitRadius(r * 2, 0.85);
 
+  _staticCircleCount = 0;
+  _redrawStatic();
   bg.stop();
   document.getElementById('intro').style.display = 'none';
   document.getElementById('start-btn').textContent = '■ STOP';
@@ -1249,6 +1249,10 @@ choiceLookBtn.addEventListener('click', enterLook);
 function resetUI() {
   stopConstruction();
   state.done = false;
+  _staticCircleCount = 0;
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.clearRect(0, 0, W, H);
   state.running = false;
   state.doneCircles = [];
   state.donePoints = [];
@@ -1308,7 +1312,7 @@ themeBtn.addEventListener('click', () => {
   state.theme = state.theme === DARK ? LIGHT : DARK;
   themeBtn.textContent = `[B] ${state.theme.label}`;
   document.body.classList.toggle('light', state.theme === LIGHT);
-  _invalidateCache();
+  _redrawStatic();
   render();
 });
 
@@ -1489,25 +1493,27 @@ document.addEventListener('keydown', e => {
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   camera.scroll(-Math.sign(e.deltaY));
+  _redrawStatic();
   render();
 }, { passive: false });
 
 canvas.addEventListener('mousedown', e => {
-  if (e.button === 0 && state.running) {
+  if (e.button === 0 && (state.running || state.done)) {
     state.panning = true;
     state.panStart = { x: e.clientX, y: e.clientY, px: camera.panX, py: camera.panY };
-    canvas.style.cursor = 'grabbing';
+    canvasFg.style.cursor = 'grabbing';
   }
 });
 window.addEventListener('mousemove', e => {
   if (state.panning) {
     camera.panX = state.panStart.px + e.clientX - state.panStart.x;
     camera.panY = state.panStart.py + e.clientY - state.panStart.y;
+    _redrawStatic();
     render();
   }
 });
 window.addEventListener('mouseup', () => {
-  if (state.panning) { state.panning = false; canvas.style.cursor = ''; }
+  if (state.panning) { state.panning = false; canvasFg.style.cursor = ''; }
 });
 
 // ───────────────────────────────────────────────────────

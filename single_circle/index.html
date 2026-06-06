@@ -9,7 +9,7 @@
 html,body{width:100%;height:100%;overflow:hidden;font-family:monospace}
 body{display:flex;flex-direction:column;background:#0a0a0a;color:#ccc}
 #canvas-wrap{flex:1;position:relative;overflow:hidden}
-#canvas-wrap canvas{display:block;width:100%;height:100%}
+#canvas-wrap canvas{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
 #intro{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
 #intro>*{pointer-events:auto}
 .intro-title{font-size:42px;font-weight:bold;color:#d7d7d7;letter-spacing:3px;margin-bottom:8px}
@@ -57,6 +57,7 @@ body{display:flex;flex-direction:column;background:#0a0a0a;color:#ccc}
 </head>
 <body>
 <div id="canvas-wrap">
+  <canvas id="b"></canvas>
   <canvas id="c"></canvas>
   <div id="intro">
     <div class="intro-title">CIRCLE FLOWER</div>
@@ -169,54 +170,50 @@ function getColor(idx, total, scheme) {
   return fn(idx / Math.max(total, 1));
 }
 
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
+const canvasFg = document.getElementById('c');
+const ctxFg = canvasFg.getContext('2d');
+const canvasBg = document.getElementById('b');
+const ctxBg = canvasBg.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
 let W, H, cx, cy;
+let _staticCircleCount = 0;
 
-let _cacheCanvas = null;
-let _cacheCtx = null;
-let _cacheCount = 0;
-
-function _invalidateCache() { _cacheCanvas = null; }
-
-function _syncCache() {
-  const dpr = window.devicePixelRatio || 1;
-  if (!_cacheCanvas || _cacheCanvas.width !== canvas.width || _cacheCanvas.height !== canvas.height) {
-    const dpr = window.devicePixelRatio || 1;
-    _cacheCanvas = document.createElement('canvas');
-    _cacheCanvas.width = canvas.width;
-    _cacheCanvas.height = canvas.height;
-    _cacheCtx = _cacheCanvas.getContext('2d');
-    _cacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    _cacheCount = 0;
-  }
-
-  if (_cacheCount < state.finishedCircles.length) {
-    const newCircles = state.finishedCircles.slice(_cacheCount);
-    const total = state.circles.length;
-    for (const c of newCircles) {
-      const col = getColor(c.idx, total, state.scheme);
-      _cacheCtx.beginPath();
-      _cacheCtx.arc(c.center[0], c.center[1], c.radius, 0, TAU);
-      _cacheCtx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
-      _cacheCtx.lineWidth = 2;
-      _cacheCtx.stroke();
-    }
-    _cacheCtx.lineWidth = 1;
-    _cacheCount = state.finishedCircles.length;
-  }
-}
-
-function resize() {
+function _initCanvases() {
   const rect = wrap.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   W = rect.width; H = rect.height;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const c of [canvasBg, canvasFg]) {
+    c.width = W * dpr;
+    c.height = H * dpr;
+    c.style.width = W + 'px';
+    c.style.height = H + 'px';
+  }
+  ctxFg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx = W / 2; cy = H / 2;
-  _invalidateCache();
+}
+
+function _redrawStatic() {
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.fillStyle = getBG();
+  ctxBg.fillRect(0, 0, W, H);
+  const total = state.circles.length;
+  for (const c of state.finishedCircles) {
+    const col = getColor(c.idx, total, state.scheme);
+    ctxBg.beginPath();
+    ctxBg.arc(c.center[0], c.center[1], c.radius, 0, TAU);
+    ctxBg.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+    ctxBg.lineWidth = 2;
+    ctxBg.stroke();
+  }
+  ctxBg.lineWidth = 1;
+  _staticCircleCount = state.finishedCircles.length;
+}
+
+function resize() {
+  _initCanvases();
+  _redrawStatic();
 }
 window.addEventListener('resize', resize);
 
@@ -269,11 +266,11 @@ const bgAnim = {
     }
   },
   draw(t) {
-    ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H);
+    ctxFg.fillStyle = getBG(); ctxFg.fillRect(0, 0, W, H);
     const r = 180 + 15 * Math.sin(t * 0.6);
     for (let i = 0; i < 4; i++) {
-      ctx.beginPath(); ctx.arc(cx, cy, r * (1 - i * 0.15), 0, TAU);
-      ctx.strokeStyle = state.dark ? 'rgba(40,40,40,0.9)' : 'rgba(200,200,200,0.5)'; ctx.stroke();
+      ctxFg.beginPath(); ctxFg.arc(cx, cy, r * (1 - i * 0.15), 0, TAU);
+      ctxFg.strokeStyle = state.dark ? 'rgba(40,40,40,0.9)' : 'rgba(200,200,200,0.5)'; ctxFg.stroke();
     }
     const n = state.pointCount;
     const pts = [];
@@ -283,43 +280,54 @@ const bgAnim = {
     }
     for (const [px, py] of pts) {
       const mx = (cx + px) / 2, my = (cy + py) / 2, mr = Math.hypot(px - cx, py - cy) / 2;
-      ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU);
-      ctx.strokeStyle = state.dark ? 'rgba(65,65,65,0.7)' : 'rgba(180,180,180,0.5)'; ctx.stroke();
-      ctx.beginPath(); ctx.arc(px, py, 4, 0, TAU);
-      ctx.fillStyle = '#ffc832'; ctx.fill();
+      ctxFg.beginPath(); ctxFg.arc(mx, my, mr, 0, TAU);
+      ctxFg.strokeStyle = state.dark ? 'rgba(65,65,65,0.7)' : 'rgba(180,180,180,0.5)'; ctxFg.stroke();
+      ctxFg.beginPath(); ctxFg.arc(px, py, 4, 0, TAU);
+      ctxFg.fillStyle = '#ffc832'; ctxFg.fill();
     }
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, TAU);
-    ctx.fillStyle = '#ffc832'; ctx.fill();
+    ctxFg.beginPath(); ctxFg.arc(cx, cy, 4, 0, TAU);
+    ctxFg.fillStyle = '#ffc832'; ctxFg.fill();
     const phase = (t % 3) / 3;
     const waveR = r * (1 + phase * 2);
-    ctx.beginPath(); ctx.arc(cx, cy, waveR, 0, TAU);
-    ctx.strokeStyle = `rgba(255,220,50,${Math.round((1 - phase) * 40)})`; ctx.stroke();
+    ctxFg.beginPath(); ctxFg.arc(cx, cy, waveR, 0, TAU);
+    ctxFg.strokeStyle = `rgba(255,220,50,${Math.round((1 - phase) * 40)})`; ctxFg.stroke();
   },
 };
 
 function drawCircle(center, radius, color) {
-  ctx.beginPath(); ctx.arc(center[0], center[1], Math.max(radius, 0), 0, TAU);
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+  ctxFg.beginPath(); ctxFg.arc(center[0], center[1], Math.max(radius, 0), 0, TAU);
+  ctxFg.strokeStyle = color; ctxFg.lineWidth = 2; ctxFg.stroke(); ctxFg.lineWidth = 1;
 }
-
 function drawArc(center, radius, sweep, color) {
   if (sweep <= 0) return;
-  ctx.beginPath(); ctx.arc(center[0], center[1], Math.max(radius, 0), 0, TAU * sweep);
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+  ctxFg.beginPath(); ctxFg.arc(center[0], center[1], Math.max(radius, 0), 0, TAU * sweep);
+  ctxFg.strokeStyle = color; ctxFg.lineWidth = 2; ctxFg.stroke(); ctxFg.lineWidth = 1;
 }
-
 function drawDot(pt, color, rad) {
-  ctx.beginPath(); ctx.arc(pt[0], pt[1], rad || 5, 0, TAU);
-  ctx.fillStyle = color; ctx.fill();
+  ctxFg.beginPath(); ctxFg.arc(pt[0], pt[1], rad || 5, 0, TAU);
+  ctxFg.fillStyle = color; ctxFg.fill();
 }
 
 function render() {
   const dpr = window.devicePixelRatio || 1;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H);
+  ctxFg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxFg.clearRect(0, 0, W, H);
 
-  _syncCache();
-  ctx.drawImage(_cacheCanvas, 0, 0);
+  // Draw new circles to static canvas once
+  if (_staticCircleCount < state.finishedCircles.length) {
+    const newCircles = state.finishedCircles.slice(_staticCircleCount);
+    const total = state.circles.length;
+    for (const c of newCircles) {
+      const col = getColor(c.idx, total, state.scheme);
+      ctxBg.beginPath();
+      ctxBg.arc(c.center[0], c.center[1], c.radius, 0, TAU);
+      ctxBg.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+      ctxBg.lineWidth = 2;
+      ctxBg.stroke();
+    }
+    ctxBg.lineWidth = 1;
+    _staticCircleCount = state.finishedCircles.length;
+  }
 
   const total = state.circles.length;
   if (state.stage === 2 && state.curCircle < state.circles.length) {
@@ -361,6 +369,8 @@ function startAnimation() {
   state.stage = 0; state.mainProg = 0; state.visiblePoints = 0;
   state.pointTimer = 0; state.curCircle = 0; state.curProg = 0;
   state.finishedCircles = [];
+  _staticCircleCount = 0;
+  _redrawStatic();
   build();
   document.getElementById('intro').style.display = 'none';
   document.getElementById('start-btn').textContent = '■ STOP';
@@ -426,6 +436,10 @@ function finish() {
 function stopAnimation() {
   state.running = false; state.done = false; state.paused = false;
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+  _staticCircleCount = 0;
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.clearRect(0, 0, W, H);
   document.getElementById('start-btn').textContent = '▶ START';
   document.getElementById('start-btn').classList.add('prim');
   document.getElementById('pause-btn').style.display = 'none';
@@ -447,7 +461,7 @@ function rgbHex(r, g, b) { return '#' + [r, g, b].map(c => Math.round(c).toStrin
 
 function exportPNG() {
   render();
-  canvas.toBlob(blob => {
+  canvasBg.toBlob(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'circle_flower.png';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -501,30 +515,32 @@ function enterLook() {
 }
 
 function renderLook() {
-  ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H);
+  const dpr = window.devicePixelRatio || 1;
+  ctxFg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxFg.fillStyle = getBG(); ctxFg.fillRect(0, 0, W, H);
   const total = state.circles.length;
-  ctx.save();
-  ctx.translate(lookPanX, lookPanY);
-  ctx.scale(lookZoom, lookZoom);
+  ctxFg.save();
+  ctxFg.translate(lookPanX * dpr, lookPanY * dpr);
+  ctxFg.scale(lookZoom, lookZoom);
   for (const c of state.finishedCircles) {
     const col = getColor(c.idx, total, state.scheme);
-    ctx.beginPath(); ctx.arc(c.center[0], c.center[1], c.radius, 0, TAU);
-    ctx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.stroke();
+    ctxFg.beginPath(); ctxFg.arc(c.center[0], c.center[1], c.radius, 0, TAU);
+    ctxFg.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctxFg.stroke();
   }
-  ctx.beginPath(); ctx.arc(cx, cy, state.mainRadius, 0, TAU);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, TAU);
-  ctx.fillStyle = '#ffc832'; ctx.fill();
+  ctxFg.beginPath(); ctxFg.arc(cx, cy, state.mainRadius, 0, TAU);
+  ctxFg.strokeStyle = '#fff'; ctxFg.lineWidth = 3; ctxFg.stroke(); ctxFg.lineWidth = 1;
+  ctxFg.beginPath(); ctxFg.arc(cx, cy, 6, 0, TAU);
+  ctxFg.fillStyle = '#ffc832'; ctxFg.fill();
   for (const p of state.points) {
-    ctx.beginPath(); ctx.arc(p[0], p[1], 5, 0, TAU);
-    ctx.fillStyle = '#fff'; ctx.fill();
+    ctxFg.beginPath(); ctxFg.arc(p[0], p[1], 5, 0, TAU);
+    ctxFg.fillStyle = '#fff'; ctxFg.fill();
   }
-  ctx.restore();
+  ctxFg.restore();
   // hint
-  ctx.fillStyle = state.dark ? '#888' : '#aaa';
-  ctx.font = '14px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('drag to pan  ·  scroll to zoom  ·  ESC to exit', W / 2, 28);
+  ctxFg.fillStyle = state.dark ? '#888' : '#aaa';
+  ctxFg.font = '14px monospace';
+  ctxFg.textAlign = 'center';
+  ctxFg.fillText('drag to pan  ·  scroll to zoom  ·  ESC to exit', W / 2, 28);
 }
 
 // UI controls
@@ -559,10 +575,9 @@ document.getElementById('theme-btn').addEventListener('click', () => {
   state.dark = !state.dark;
   document.getElementById('theme-btn').textContent = state.dark ? '[B] DARK' : '[B] LIGHT';
   document.body.style.background = state.dark ? '#0a0a0a' : '#f5f0eb';
-  _invalidateCache();
   if (state.lookMode) renderLook();
-  else if (state.done || state.running) render();
-  else { ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H); }
+  else if (state.done || state.running) { _redrawStatic(); render(); }
+  else { ctxFg.fillStyle = getBG(); ctxFg.fillRect(0, 0, W, H); }
 });
 
 // Settings
@@ -574,12 +589,12 @@ const sSchemeVal = document.getElementById('s-scheme-val');
 document.getElementById('s-scheme-prev').addEventListener('click', () => {
   const i = (COLOR_SCHEMES.indexOf(state.scheme) - 1 + COLOR_SCHEMES.length) % COLOR_SCHEMES.length;
   state.scheme = COLOR_SCHEMES[i]; sSchemeVal.textContent = state.scheme;
-  _invalidateCache(); render();
+  _redrawStatic(); render();
 });
 document.getElementById('s-scheme-next').addEventListener('click', () => {
   const i = (COLOR_SCHEMES.indexOf(state.scheme) + 1) % COLOR_SCHEMES.length;
   state.scheme = COLOR_SCHEMES[i]; sSchemeVal.textContent = state.scheme;
-  _invalidateCache(); render();
+  _redrawStatic(); render();
 });
 const sRadius = document.getElementById('s-radius');
 const sRadiusVal = document.getElementById('s-radius-val');
@@ -639,7 +654,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0 || !state.lookMode) return;
   lookDragging = true;
   lookDragStart = { x: e.clientX, y: e.clientY, px: lookPanX, py: lookPanY };
-  canvas.style.cursor = 'grabbing';
+    canvasFg.style.cursor = 'grabbing';
 });
 window.addEventListener('mousemove', e => {
   if (!lookDragging || !state.lookMode) return;
@@ -648,7 +663,7 @@ window.addEventListener('mousemove', e => {
   renderLook();
 });
 window.addEventListener('mouseup', () => {
-  if (lookDragging) { lookDragging = false; canvas.style.cursor = ''; }
+  if (lookDragging) { lookDragging = false; canvasFg.style.cursor = ''; }
 });
 
 resize();

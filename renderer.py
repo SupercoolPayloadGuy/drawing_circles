@@ -153,9 +153,9 @@ class Renderer:
         self.anim_t         = 0.0
         self.anim_start_ang = -math.pi / 2
 
-        self._circle_cache  = None
-        self._cache_zoom    = None
-        self._cache_count   = 0
+        self._static_surface = None
+        self._static_zoom    = None
+        self._static_count   = 0
 
         self.paused         = False
         self.animation_done = False
@@ -177,9 +177,7 @@ class Renderer:
 
     def toggle_theme(self):
         self.theme = LIGHT_THEME if self.theme is DARK_THEME else DARK_THEME
-        self._cache_count = 0
-        if self._circle_cache:
-            self._circle_cache.fill((0, 0, 0, 0))
+        self._static_surface = None  # force full redraw
 
     # ── drawing helpers ───────────────────────
 
@@ -338,26 +336,24 @@ class Renderer:
             self._hover_export_png  = self.animation_done and bool(self.export_png_rect and
                                             self.export_png_rect.collidepoint(mouse_pos))
 
-    # ── circle cache ──────────────────────────
+    # ── static background surface ─────────────
 
-    def _sync_cache(self):
+    def _ensure_static(self):
+        """Create or resize the opaque static surface that holds bg + finished circles."""
         sw, sh = self.screen.get_size()
         cam    = self.camera
+        th     = self.theme
 
-        if (self._circle_cache is None or
-                self._circle_cache.get_size() != (sw, sh)):
-            self._circle_cache = pygame.Surface((sw, sh), pygame.SRCALPHA)
-            self._circle_cache.fill((0, 0, 0, 0))
-            self._cache_zoom  = None
-            self._cache_count = 0
+        if (self._static_surface is None or
+                self._static_surface.get_size() != (sw, sh) or
+                self._static_zoom != cam.zoom):
+            self._static_surface = pygame.Surface((sw, sh))
+            self._static_surface.fill(th["background"])
+            self._static_zoom  = cam.zoom
+            self._static_count = 0
 
-        if self._cache_zoom != cam.zoom:
-            self._circle_cache.fill((0, 0, 0, 0))
-            self._cache_count = 0
-
-        if self._cache_count < len(self.done_circles):
-            new_ones  = self.done_circles[self._cache_count:]
-            th        = self.theme
+        if self._static_count < len(self.done_circles):
+            new_ones  = self.done_circles[self._static_count:]
             depths    = [d for _, _, d in self.done_circles]
             max_depth = max(depths, default=1.0) or 1.0
 
@@ -368,22 +364,19 @@ class Renderer:
                 alpha = max(60, round(220 - dep * 100))
                 col   = depth_color(th, dep / max_depth, base_alpha=alpha)
                 sc    = cam.w2s(wc)
-                pygame.draw.circle(self._circle_cache, col,
+                pygame.draw.circle(self._static_surface, col,
                                    (round(sc[0]), round(sc[1])), sr, 1)
 
-            self._cache_count = len(self.done_circles)
-
-        self._cache_zoom = cam.zoom
+            self._static_count = len(self.done_circles)
 
     # ── main redraw ───────────────────────────
 
     def redraw(self):
         cam = self.camera
         th  = self.theme
-        self.screen.fill(th["background"])
 
-        self._sync_cache()
-        self.screen.blit(self._circle_cache, (0, 0))
+        self._ensure_static()
+        self.screen.blit(self._static_surface, (0, 0))
 
         depths    = [d for _, _, d in self.done_circles]
         max_depth = max(depths, default=1.0) or 1.0
