@@ -6,7 +6,7 @@ import pygame
 
 from cli          import parse_args
 from intro        import run_intro
-from construction import run
+from construction import run as run_stage
 from animation    import RestartSignal
 
 
@@ -23,6 +23,6 @@ def run():
         if args.points:
             cfg.point_count = args.points
         try:
-            run(cfg, screen, clock)
+            run_stage(cfg, screen, clock)
         except RestartSignal:
             continue

@@ -419,6 +419,62 @@ const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
 
 let W, H, cx, cy;
+
+// Offscreen cache for already-drawn circles (avoid redrawing every frame)
+let _cacheCanvas = null;
+let _cacheCtx = null;
+let _cacheZoom = null;
+let _cachePanX = null;
+let _cachePanY = null;
+let _cacheCount = 0;
+
+function _invalidateCache() {
+  _cacheCanvas = null;
+}
+
+function _syncCache() {
+  const dpr = window.devicePixelRatio || 1;
+  if (!_cacheCanvas || _cacheCanvas.width !== canvas.width || _cacheCanvas.height !== canvas.height) {
+    const dpr = window.devicePixelRatio || 1;
+    _cacheCanvas = document.createElement('canvas');
+    _cacheCanvas.width = canvas.width;
+    _cacheCanvas.height = canvas.height;
+    _cacheCtx = _cacheCanvas.getContext('2d');
+    _cacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    _cacheZoom = null;
+    _cacheCount = 0;
+  }
+
+  if (_cacheZoom !== camera.zoom || _cachePanX !== camera.panX || _cachePanY !== camera.panY) {
+    _cacheCtx.clearRect(0, 0, _cacheCanvas.width, _cacheCanvas.height);
+    _cacheCount = 0;
+    _cacheZoom = camera.zoom;
+    _cachePanX = camera.panX;
+    _cachePanY = camera.panY;
+  }
+
+  if (_cacheCount < state.doneCircles.length) {
+    const newCircles = state.doneCircles.slice(_cacheCount);
+    const th = state.theme;
+    const maxDepth = state.doneCircles.length
+      ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
+    for (const c of newCircles) {
+      const alpha = Math.round(220 - c.depth * 100);
+      const col = depthColor(th, c.depth / maxDepth, Math.max(60, alpha));
+      const sx = (c.center[0] - camera.origin[0]) * camera.zoom + cx + camera.panX;
+      const sy = (c.center[1] - camera.origin[1]) * camera.zoom + cy + camera.panY;
+      const sr = c.radius * camera.zoom;
+      if (sr >= 1) {
+        _cacheCtx.beginPath();
+        _cacheCtx.arc(sx, sy, sr, 0, TAU);
+        _cacheCtx.strokeStyle = col;
+        _cacheCtx.stroke();
+      }
+    }
+    _cacheCount = state.doneCircles.length;
+  }
+}
+
 function resize() {
   const rect = wrap.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -429,6 +485,7 @@ function resize() {
   canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx = W / 2; cy = H / 2;
+  _invalidateCache();
 }
 window.addEventListener('resize', resize);
 
@@ -657,6 +714,7 @@ const state = {
   _digitTs: 0,
   _DIGIT_TIMEOUT: 1200,
   _inSettings: false,
+  lookMode: false,
 };
 
 // ───────────────────────────────────────────────────────
@@ -754,12 +812,13 @@ function render() {
   const th = state.theme;
   ctx.fillStyle = th.bg;
   ctx.fillRect(0, 0, W, H);
+
+  _syncCache();
+  ctx.drawImage(_cacheCanvas, 0, 0);
+
   const maxDepth = state.doneCircles.length
     ? Math.max(...state.doneCircles.map(c => c.depth), 1) : 1;
-  for (const c of state.doneCircles) {
-    const alpha = Math.round(220 - c.depth * 100);
-    drawCircle(c.center, c.radius, depthColor(th, c.depth / maxDepth, Math.max(60, alpha)));
-  }
+
   if (state.animCircle && state.animT > 0) {
     const ac = state.animCircle;
     drawArc(ac.center, ac.radius, ac.startAngle, state.animT,
@@ -871,7 +930,7 @@ function updateHUD() {
     lines.push('circles  ' + (state.doneCircles.length + (state.animCircle ? 1 : 0)));
   }
   if (state.showSpeed) {
-    lines.push('speed  ' + state.speed.toFixed(2) + 'x');
+    lines.push('speed  ' + state.speed.toFixed(2) + 'x  [[ ]]');
   }
   if (state.paused) lines.push('— PAUSED —');
   document.getElementById('hud').textContent = lines.join('\n');
@@ -892,6 +951,7 @@ function startConstruction() {
   state.donePoints = [];
   state.animCircle = null;
   state.animT = 0;
+  state.lookMode = false;
   state.stepIdx = 0;
   camera.panX = 0;
   camera.panY = 0;
@@ -1179,16 +1239,12 @@ pauseBtn.addEventListener('click', () => {
 
 restartBtn.addEventListener('click', resetUI);
 
-menuBtn.addEventListener('click', resetUI);
-choiceMenuBtn.addEventListener('click', resetUI);
-choiceLookBtn.addEventListener('click', () => {
-  completeOverlay.style.display = 'none';
-  menuBtn.style.display = '';
-  exportSvgLook.style.display = '';
-  exportPngLook.style.display = '';
-  exportSvgLook.disabled = false;
-  exportPngLook.disabled = false;
+menuBtn.addEventListener('click', () => {
+  if (state.lookMode) { exitLook(); return; }
+  resetUI();
 });
+choiceMenuBtn.addEventListener('click', resetUI);
+choiceLookBtn.addEventListener('click', enterLook);
 
 function resetUI() {
   stopConstruction();
@@ -1204,6 +1260,7 @@ function resetUI() {
   state._digitBuf = '';
   state._digitTs = 0;
   state._inSettings = false;
+  state.lookMode = false;
   document.getElementById('intro').style.display = '';
   document.getElementById('start-btn').textContent = '▶ START';
   document.getElementById('start-btn').classList.add('prim');
@@ -1223,13 +1280,36 @@ function resetUI() {
   bg.start();
 }
 
+// ── Look mode ──────────────────────────────────────────────
+
+function enterLook() {
+  state.lookMode = true;
+  document.getElementById('complete-overlay').style.display = 'none';
+  document.getElementById('menu-btn').style.display = '';
+  document.getElementById('export-svg-btn-look').style.display = '';
+  document.getElementById('export-png-btn-look').style.display = '';
+  document.getElementById('export-svg-btn-look').disabled = false;
+  document.getElementById('export-png-btn-look').disabled = false;
+  render();
+}
+
+function exitLook() {
+  state.lookMode = false;
+  document.getElementById('export-svg-btn-look').style.display = 'none';
+  document.getElementById('export-png-btn-look').style.display = 'none';
+  document.getElementById('export-svg-btn-look').disabled = true;
+  document.getElementById('export-png-btn-look').disabled = true;
+  document.getElementById('menu-btn').style.display = 'none';
+  document.getElementById('complete-overlay').style.display = 'flex';
+  render();
+}
+
 themeBtn.addEventListener('click', () => {
   state.theme = state.theme === DARK ? LIGHT : DARK;
   themeBtn.textContent = `[B] ${state.theme.label}`;
   document.body.classList.toggle('light', state.theme === LIGHT);
-  if (!state.running && !state.done) {
-    // update intro colors on theme change by reseting
-  }
+  _invalidateCache();
+  render();
 });
 
 // ── Settings ──
@@ -1313,6 +1393,16 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
     if (state._inSettings) { closeSettings(); return; }
     if (state.running || state.done) menuBtn.click();
+  }
+
+  // Speed controls (during construction / completion)
+  if (e.key === '[' && (state.running || state.done)) {
+    state.speed = Math.max(0.25, Math.round((state.speed - 0.25) * 100) / 100);
+    render();
+  }
+  if (e.key === ']' && (state.running || state.done)) {
+    state.speed = Math.min(8.0, Math.round((state.speed + 0.25) * 100) / 100);
+    render();
   }
 
   // Settings panel controls

@@ -173,6 +173,41 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvas-wrap');
 let W, H, cx, cy;
+
+let _cacheCanvas = null;
+let _cacheCtx = null;
+let _cacheCount = 0;
+
+function _invalidateCache() { _cacheCanvas = null; }
+
+function _syncCache() {
+  const dpr = window.devicePixelRatio || 1;
+  if (!_cacheCanvas || _cacheCanvas.width !== canvas.width || _cacheCanvas.height !== canvas.height) {
+    const dpr = window.devicePixelRatio || 1;
+    _cacheCanvas = document.createElement('canvas');
+    _cacheCanvas.width = canvas.width;
+    _cacheCanvas.height = canvas.height;
+    _cacheCtx = _cacheCanvas.getContext('2d');
+    _cacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    _cacheCount = 0;
+  }
+
+  if (_cacheCount < state.finishedCircles.length) {
+    const newCircles = state.finishedCircles.slice(_cacheCount);
+    const total = state.circles.length;
+    for (const c of newCircles) {
+      const col = getColor(c.idx, total, state.scheme);
+      _cacheCtx.beginPath();
+      _cacheCtx.arc(c.center[0], c.center[1], c.radius, 0, TAU);
+      _cacheCtx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+      _cacheCtx.lineWidth = 2;
+      _cacheCtx.stroke();
+    }
+    _cacheCtx.lineWidth = 1;
+    _cacheCount = state.finishedCircles.length;
+  }
+}
+
 function resize() {
   const rect = wrap.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -181,6 +216,7 @@ function resize() {
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cx = W / 2; cy = H / 2;
+  _invalidateCache();
 }
 window.addEventListener('resize', resize);
 
@@ -278,12 +314,14 @@ function drawDot(pt, color, rad) {
 }
 
 function render() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H);
+
+  _syncCache();
+  ctx.drawImage(_cacheCanvas, 0, 0);
+
   const total = state.circles.length;
-  for (const c of state.finishedCircles) {
-    const col = getColor(c.idx, total, state.scheme);
-    drawCircle(c.center, c.radius, `rgb(${col[0]},${col[1]},${col[2]})`);
-  }
   if (state.stage === 2 && state.curCircle < state.circles.length) {
     const c = state.circles[state.curCircle];
     const col = getColor(state.curCircle, total, state.scheme);
@@ -311,6 +349,7 @@ function render() {
     else if (state.stage === 3) pct = 100;
     lines.push(`progress  ${pct.toFixed(1)}%`);
   }
+  lines.push('speed  ' + state.speed.toFixed(2) + 'x');
   document.getElementById('hud').textContent = lines.join('\n');
 }
 
@@ -520,6 +559,7 @@ document.getElementById('theme-btn').addEventListener('click', () => {
   state.dark = !state.dark;
   document.getElementById('theme-btn').textContent = state.dark ? '[B] DARK' : '[B] LIGHT';
   document.body.style.background = state.dark ? '#0a0a0a' : '#f5f0eb';
+  _invalidateCache();
   if (state.lookMode) renderLook();
   else if (state.done || state.running) render();
   else { ctx.fillStyle = getBG(); ctx.fillRect(0, 0, W, H); }
@@ -534,10 +574,12 @@ const sSchemeVal = document.getElementById('s-scheme-val');
 document.getElementById('s-scheme-prev').addEventListener('click', () => {
   const i = (COLOR_SCHEMES.indexOf(state.scheme) - 1 + COLOR_SCHEMES.length) % COLOR_SCHEMES.length;
   state.scheme = COLOR_SCHEMES[i]; sSchemeVal.textContent = state.scheme;
+  _invalidateCache(); render();
 });
 document.getElementById('s-scheme-next').addEventListener('click', () => {
   const i = (COLOR_SCHEMES.indexOf(state.scheme) + 1) % COLOR_SCHEMES.length;
   state.scheme = COLOR_SCHEMES[i]; sSchemeVal.textContent = state.scheme;
+  _invalidateCache(); render();
 });
 const sRadius = document.getElementById('s-radius');
 const sRadiusVal = document.getElementById('s-radius-val');
@@ -563,6 +605,12 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'p' || e.key === 'P') {
     if (state.running) { document.getElementById('pause-btn').click(); return; }
+  }
+  if (e.key === '[' && state.running) {
+    state.speed = Math.max(0.25, Math.round((state.speed - 0.25) * 100) / 100);
+  }
+  if (e.key === ']' && state.running) {
+    state.speed = Math.min(8.0, Math.round((state.speed + 0.25) * 100) / 100);
   }
   if (e.key === 'Enter' && !state.running && !state.done) { startAnimation(); return; }
   if (!state.running && !state.done) {

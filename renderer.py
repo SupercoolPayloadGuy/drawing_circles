@@ -153,6 +153,10 @@ class Renderer:
         self.anim_t         = 0.0
         self.anim_start_ang = -math.pi / 2
 
+        self._circle_cache  = None
+        self._cache_zoom    = None
+        self._cache_count   = 0
+
         self.paused         = False
         self.animation_done = False
         self.speed_display  = 1.0   # updated each frame by AnimState
@@ -173,6 +177,9 @@ class Renderer:
 
     def toggle_theme(self):
         self.theme = LIGHT_THEME if self.theme is DARK_THEME else DARK_THEME
+        self._cache_count = 0
+        if self._circle_cache:
+            self._circle_cache.fill((0, 0, 0, 0))
 
     # ── drawing helpers ───────────────────────
 
@@ -331,6 +338,43 @@ class Renderer:
             self._hover_export_png  = self.animation_done and bool(self.export_png_rect and
                                             self.export_png_rect.collidepoint(mouse_pos))
 
+    # ── circle cache ──────────────────────────
+
+    def _sync_cache(self):
+        sw, sh = self.screen.get_size()
+        cam    = self.camera
+
+        if (self._circle_cache is None or
+                self._circle_cache.get_size() != (sw, sh)):
+            self._circle_cache = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            self._circle_cache.fill((0, 0, 0, 0))
+            self._cache_zoom  = None
+            self._cache_count = 0
+
+        if self._cache_zoom != cam.zoom:
+            self._circle_cache.fill((0, 0, 0, 0))
+            self._cache_count = 0
+
+        if self._cache_count < len(self.done_circles):
+            new_ones  = self.done_circles[self._cache_count:]
+            th        = self.theme
+            depths    = [d for _, _, d in self.done_circles]
+            max_depth = max(depths, default=1.0) or 1.0
+
+            for wc, wr, dep in new_ones:
+                sr = round(cam.r2s(wr))
+                if sr < 1:
+                    continue
+                alpha = max(60, round(220 - dep * 100))
+                col   = depth_color(th, dep / max_depth, base_alpha=alpha)
+                sc    = cam.w2s(wc)
+                pygame.draw.circle(self._circle_cache, col,
+                                   (round(sc[0]), round(sc[1])), sr, 1)
+
+            self._cache_count = len(self.done_circles)
+
+        self._cache_zoom = cam.zoom
+
     # ── main redraw ───────────────────────────
 
     def redraw(self):
@@ -338,17 +382,11 @@ class Renderer:
         th  = self.theme
         self.screen.fill(th["background"])
 
+        self._sync_cache()
+        self.screen.blit(self._circle_cache, (0, 0))
+
         depths    = [d for _, _, d in self.done_circles]
         max_depth = max(depths, default=1.0) or 1.0
-
-        for wc, wr, dep in self.done_circles:
-            sr = round(cam.r2s(wr))
-            if sr < 1:
-                continue
-            alpha = max(60, round(220 - dep * 100))
-            col   = depth_color(th, dep / max_depth, base_alpha=alpha)
-            sc    = cam.w2s(wc)
-            pygame.draw.circle(self.screen, col, (round(sc[0]), round(sc[1])), sr, 1)
 
         if self.anim_circle and self.anim_t > 0:
             wc, wr, dep = self.anim_circle
