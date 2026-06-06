@@ -132,7 +132,7 @@ body.light .intro-dot{background:#ddd}
   cursor:pointer;transition:background .2s,color .2s,border-color .2s}
 .export-actions button:hover{background:#2a4a4a;color:#aff;border-color:#4a9a9a}
 
-#export-svg-btn-look, #export-png-btn-look{display:none}
+/* hidden by inline style initially, shown via JS on LOOK AROUND */
 
 /* ── HUD ── */
 #hud{position:absolute;top:56px;left:14px;font:13px monospace;color:#828282;
@@ -1186,6 +1186,8 @@ choiceLookBtn.addEventListener('click', () => {
   menuBtn.style.display = '';
   exportSvgLook.style.display = '';
   exportPngLook.style.display = '';
+  exportSvgLook.disabled = false;
+  exportPngLook.disabled = false;
 });
 
 function resetUI() {
@@ -1213,7 +1215,9 @@ function resetUI() {
   document.getElementById('pts-slider').disabled = false;
   menuBtn.style.display = 'none';
   exportSvgLook.style.display = 'none';
+  exportSvgLook.disabled = true;
   exportPngLook.style.display = 'none';
+  exportPngLook.disabled = true;
   completeOverlay.style.display = 'none';
   settingsOverlay.style.display = 'none';
   bg.start();
