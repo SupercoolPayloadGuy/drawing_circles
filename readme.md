@@ -1,123 +1,159 @@
-# Drawing Circles — Recursive Circle Construction
+# Drawing Circles
 
-A small project that visualises a geometric circle-construction algorithm. It includes:
+A small creative project for exploring recursive circle constructions with interactive visualization.
 
-- A self-contained HTML renderer (open `index.html`) for quick demos.
-- A Python/pygame animated application (`main.py`) with configurable levels and point counts.
-- Export support for completed constructions as SVG or PNG from the Python app.
+The repository contains:
 
-This README explains installation, usage, examples, configuration, and development notes.
+- A desktop Python app powered by `pygame`.
+- A self-contained browser demo in `index.html`.
+- Export support for SVG and PNG output.
+- A separate `single_circle/` demo folder with its own app and browser version.
+- A few small script experiments in `little_scripts/`.
 
-**Table of Contents**
+---
 
-- Project overview
-- Quick start
-- Python (pygame) usage
-- HTML usage
-- Examples
-- Configuration
-- Project structure
-- Development & tests
-- Troubleshooting
+## Features
 
-## Project Overview
+- Interactive level and base-point selection.
+- Animated construction of circles from point pairs.
+- Built-in settings panel for radius, speed, HUD toggles, and theme.
+- Export completed constructions as SVG or PNG.
+- Browser demo with look-around pan/zoom and export buttons.
 
-The animation builds circles by repeatedly projecting points and drawing circles through point pairs. It demonstrates recursive geometric constructions with depth-based colouring, auto-zoom, and interactive controls. The Python app also lets you export completed constructions as SVG or PNG files.
+---
 
 ## Quick Start
 
-- HTML (no install): open [index.html](index.html) in a browser.
-- Python (recommended for the full experience):
+### Run the browser demo
+
+Open `index.html` in a modern browser. No install is required.
+
+### Run the Python app
+
+1. Install Python 3.
+2. Create and activate a virtual environment (optional but recommended).
+3. Install dependencies:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+4. Launch the application:
+
+```bash
 python main.py
 ```
 
-On Linux/macOS replace `source .venv/bin/activate` with the appropriate activation command for your shell.
+5. Override the base point count with:
 
-## Python (pygame) Usage
+```bash
+python main.py --points 6
+```
 
-- Run the application: `python main.py`
-- Useful CLI flags (if implemented):
-	- `-p N` or `--points N` — start with N base points
-	- `-l N` or `--level N` — start at level N
+---
 
-Controls (keyboard & mouse):
+## Controls
 
-- `Enter` — start animation from intro
+### Top-level app (`main.py`)
+
+- `ENTER` / `TAB` — start or open settings
 - `P` — pause / resume
 - `B` — toggle dark/light theme
-- Arrow keys or `W/A/S/D` — adjust level and point count in the UI
+- `[` / `]` — decrease / increase speed
+- `ESC` / `M` — return to the main menu
 - Mouse wheel — zoom
-- Click & drag — pan
-- After the animation finishes, use the on-screen export buttons to save SVG or PNG output.
+- Drag — pan
 
-If you modify settings in `config.py` those changes will affect the behaviour of `main.py`.
+### Intro screen
 
-## HTML Usage
+- `LEFT` / `RIGHT` or `A` / `D` — change point count
+- `UP` / `DOWN` or `W` / `S` — change level
+- digits `0-9` — type level directly
+- `TAB` — open settings panel
 
-Open [index.html](index.html) in a modern browser. The HTML build is self-contained and provides the same visual demo without Python or external dependencies.
+### Settings panel
 
-## Examples
+- `UP` / `DOWN` or `W` / `S` — move selection
+- `LEFT` / `RIGHT` or `A` / `D` — change values
+- `+` / `-` — change values
+- `ENTER` / `TAB` — return to main panel
 
-- `examples/simple_circle.py` — minimal Python example using turtle (no extra deps).
-- `examples/circle_algorithm.py` — pygame example demonstrating alternate algorithm flows.
-- `examples/double_circle.py` — variant that draws two concentric constructions.
+---
 
-## Configuration
+## Export
 
-Primary runtime options live in `config.py`. Typical configurable values:
+The Python app and browser demo can export completed constructions.
 
-- `base_radius` — radius of the initial base circle
-- `point_count` — default number of points on the base circle
-- `level` — default construction depth
-- `speed` — animation speed multiplier
+- Python export files are saved to `map/exports/`.
+- Supported formats: `SVG` and `PNG`.
 
-Adjust these values directly or expose them via CLI in `main.py` if you want runtime overrides.
+---
 
 ## Project Structure
 
-- `main.py` — app entry point (pygame desktop)
-- `index.html` — self-contained browser demo
-- `animation.py` — animation helpers, timing, and easing
-- `renderer.py` — drawing, camera, HUD and theme handling
-- `geometry.py` — geometric primitives and helpers
-- `construction.py` — construction orchestration (animation stages)
-- `export.py` — save completed constructions as SVG or PNG
-- `intro.py` — intro/menu UI
-- `config.py` — default settings
-- `requirements.txt` — Python dependencies
-- `examples/` — small example scripts
+### Root files
 
-## Development & Tests
+- `main.py` — desktop app entry point
+- `app.py` — application initialization and loop
+- `cli.py` — command-line argument parsing
+- `config.py` — shared runtime configuration
+- `intro.py` — intro and settings UI
+- `construction.py` — construction and animation stages
+- `geometry.py` — pure geometry helpers
+- `renderer.py` — drawing, camera, and HUD
+- `animation.py` — easing, timers, and event handling
+- `export.py` — export helpers for SVG/PNG
+- `index.html` — self-contained browser visualization
+- `requirements.txt` — Python dependency list
 
-1. Create and activate a virtualenv.
-2. Install dependencies: `pip install -r requirements.txt`.
-3. Run `python main.py` to test the animation locally.
+### Supporting folders
 
-There are no automated tests included with this repo. Add tests under a `tests/` folder and run with `pytest` if desired.
-
-## Troubleshooting
-
-- If `pygame` fails to import: ensure the virtualenv is active and `pygame` is installed (`pip install pygame`).
-- If performance is slow: try lowering `point_count` or `level` in the UI or `config.py`.
-- If the HTML demo looks different from Python: browsers and canvas rendering may differ slightly in antialiasing/timing.
-
-## Contributing
-
-Contributions are welcome. Typical workflow:
-
-1. Fork the repo and create a feature branch.
-2. Make changes and run the app locally to verify.
-3. Open a pull request with a short description of your changes.
-
-Please keep changes focused and include a brief note describing the rationale.
-
-## Contact
-
-If you need help, open an issue in the repository with details about your environment and what you tried.
+- `little_scripts/` — small experimental scripts for circle-related constructions
+- `map/exports/` — default export destination for generated images
+- `opencode/` — archived or published output content
+- `single_circle/` — separate simplified demo with its own app and browser version
 
 ---
+
+## `single_circle/` Demo
+
+This folder contains a standalone variant of the same circle construction concept.
+
+- `single_circle/main.py` — entry point for the simplified app
+- `single_circle/app.py` — app loop and state machine
+- `single_circle/config.py` — demo-specific configuration
+- `single_circle/geometry.py` — math helpers
+- `single_circle/renderer.py` — drawing utilities
+- `single_circle/intro.py` — animated intro screen
+- `single_circle/index.html` — browser demo for the simplified version
+
+---
+
+## Dependencies
+
+- `pygame`
+
+Install with:
+
+```bash
+pip install pygame
+```
+
+---
+
+## Notes
+
+- The app currently supports only `--points` as a CLI override.
+- Most runtime options are configured in `config.py`.
+- There is no test suite included in this repo.
+
+---
+
+## Development
+
+1. Open the project in your editor.
+2. Install dependencies.
+3. Run `python main.py` and verify the visualization.
+4. Change defaults in `config.py` or explore the browser demo.
+
+If you want to add tests, create a `tests/` folder and use `pytest`.
