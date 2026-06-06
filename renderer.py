@@ -147,6 +147,7 @@ class Renderer:
 
         self.paused         = False
         self.animation_done = False
+        self.speed_display  = 1.0   # updated each frame by AnimState
 
         self._hover_pause       = False
         self._hover_restart     = False
@@ -221,7 +222,13 @@ class Renderer:
 
     def _draw_hud(self):
         fg    = self.theme["hud_fg"]
-        lines = [f"LEVEL {self.level}", f"zoom {self.camera.zoom:.2f}x", "[scroll] zoom"]
+        count = len(self.done_circles) + (1 if self.anim_circle else 0)
+        lines = [
+            f"LEVEL {self.level}",
+            f"circles  {count}",
+            f"speed  {self.speed_display:.2f}x  [[ ]]",
+            f"zoom  {self.camera.zoom:.2f}x  [scroll]",
+        ]
         if self.paused:
             lines.append("— PAUSED —")
         for i, line in enumerate(lines):

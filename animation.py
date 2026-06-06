@@ -29,14 +29,25 @@ def draw_duration(level):
 # ──────────────────────────────────────────────
 
 class AnimState:
+    _BASE_DURATION = None   # set from level in __init__
+
+    SPEED_MIN  = 0.25
+    SPEED_MAX  = 8.0
+    SPEED_STEP = 0.25
+
     def __init__(self, renderer, clock, level):
         self.renderer      = renderer
         self.clock         = clock
-        self.draw_duration = draw_duration(level)
+        self._base_dur     = draw_duration(level)
+        self.speed_mul     = 1.0          # user-adjustable via [ / ]
         self.point_fade    = 0.38
         # Same list objects as renderer — mutations reflected immediately.
         self.done_circles  = renderer.done_circles
         self.done_points   = renderer.done_points
+
+    @property
+    def draw_duration(self):
+        return self._base_dur / self.speed_mul
 
 
 # ──────────────────────────────────────────────
@@ -47,6 +58,7 @@ def pump(state):
     """Process events; return True if a restart was requested."""
     r = state.renderer
     r.update_hover(pygame.mouse.get_pos())
+    r.speed_display = state.speed_mul
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -58,6 +70,12 @@ def pump(state):
                 r.toggle_theme()
             elif event.key == pygame.K_p:
                 r.paused = not r.paused
+            elif event.key == pygame.K_LEFTBRACKET:
+                state.speed_mul = max(AnimState.SPEED_MIN,
+                                      round(state.speed_mul - AnimState.SPEED_STEP, 10))
+            elif event.key == pygame.K_RIGHTBRACKET:
+                state.speed_mul = min(AnimState.SPEED_MAX,
+                                      round(state.speed_mul + AnimState.SPEED_STEP, 10))
             elif event.key in (pygame.K_ESCAPE, pygame.K_m):
                 pygame.event.post(pygame.event.Event(RESTART_EVENT))
 
