@@ -10,44 +10,38 @@ from geometry import (
     cardinal_points, circle_from_points, midpoint,
     farthest_extent, project_onto_ring, deduplicate,
 )
-from renderer import Renderer, Camera, RESTART_EVENT
+from renderer import Renderer, Camera
 from animation import AnimState, animate_circle, pause, add_points_fade, \
     draw_all_pairs, pump, RestartSignal
+from config import Config
 
 
-WIDTH       = 1200
-HEIGHT      = 1200
-BASE_RADIUS = 140
+WIDTH  = 1200
+HEIGHT = 1200
 
-_PAUSE      = 0.06   # brief gap between circles
-_STAGE      = 0.28   # longer gap between construction stages
+_PAUSE = 0.06
+_STAGE = 0.28
 
 
-# ──────────────────────────────────────────────
-# PUBLIC ENTRY POINT
-# ──────────────────────────────────────────────
-
-def run(cfg, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
+def run(cfg: Config, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
     """
-    Animate the circle construction up to `cfg.level`.
-    Returns normally on completion (user chose Look Around).
-    Raises RestartSignal if the user returns to the menu.
+    Animate the circle construction using the given Config.
+    Returns normally on completion. Raises RestartSignal on menu return.
     """
-    level       = cfg.level
-    point_count = cfg.point_count
-    origin      = (WIDTH / 2, HEIGHT / 2)
-    camera      = Camera(WIDTH, HEIGHT, origin)
-    renderer    = Renderer(screen, camera, cfg)
+    origin   = (WIDTH / 2, HEIGHT / 2)
+    camera   = Camera(WIDTH, HEIGHT, origin)
+    renderer = Renderer(screen, camera, cfg)
     renderer.animation_done = False
 
     pygame.display.set_caption(
-        f"Circle Construction  •  Level {level}  •  {point_count} pts  •  "
-        f"[P] pause  [B] theme  [scroll] zoom"
+        f"Circle Construction  •  Level {cfg.level}  •  {cfg.point_count} pts  •  "
+        f"[P] pause  [B] theme  [[ ]] speed  [scroll] zoom"
     )
 
-    state = AnimState(renderer, clock, level)
+    state           = AnimState(renderer, clock, cfg.level)
+    state.speed_mul = cfg.speed
 
-    _build(state, renderer, origin, level, point_count)
+    _build(state, renderer, origin, cfg)
     _idle(state, renderer, clock)
 
 
@@ -55,8 +49,11 @@ def run(cfg, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
 # STAGE BUILDER
 # ──────────────────────────────────────────────
 
-def _build(state, renderer, origin, level, point_count):
-    A = origin
+def _build(state, renderer, origin, cfg):
+    A           = origin
+    level       = cfg.level
+    point_count = cfg.point_count
+    base_radius = cfg.base_radius
 
     def ac(center, radius, depth=0.0, from_point=None):
         animate_circle(state, center, radius, depth=depth,
@@ -79,9 +76,9 @@ def _build(state, renderer, origin, level, point_count):
     renderer.redraw()
     wp(0.3)
 
-    outer = cardinal_points(A, BASE_RADIUS, count=point_count)
+    outer = cardinal_points(A, base_radius, count=point_count)
 
-    ac(A, BASE_RADIUS, depth=0.0, from_point=outer[0])
+    ac(A, base_radius, depth=0.0, from_point=outer[0])
     wp(_STAGE)
 
     apf([A] + outer, depth=0.0, stagger=0.07)
