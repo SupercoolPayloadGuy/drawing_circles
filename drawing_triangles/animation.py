@@ -5,7 +5,6 @@ animation.py — timing, easing, pause/play, animated triangle construction step
 import os
 import time
 import pygame
-import numpy as np
 
 from geometry import next_generation
 from renderer import RESTART_EVENT
@@ -155,8 +154,9 @@ def animate_generation(state, current_triangle, gen_idx):
 
     while True:
         now = time.time()
+        dt = now - prev_ts
         if not r.paused:
-            elapsed += now - prev_ts
+            elapsed += dt
         prev_ts = now
 
         t = min(elapsed / dur, 1.0)
@@ -167,6 +167,10 @@ def animate_generation(state, current_triangle, gen_idx):
         r.anim_new_tri = new_tri
         r.anim_intersections = new_tri
         r.anim_t = t
+
+        if not r.paused:
+            r.advance_pending(dt, state.speed_mul)
+
         r.redraw()
 
         if pump(state):
@@ -176,7 +180,7 @@ def animate_generation(state, current_triangle, gen_idx):
         if t >= 1.0:
             break
 
-    r.done_triangles.append((current_triangle, gen_idx))
+    r.pending_draw.append([current_triangle, gen_idx, 0.0])
     r.construction_history.append({
         "tri": current_triangle,
         "bis": list(zip(current_triangle, bisectors)),

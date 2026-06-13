@@ -2,10 +2,8 @@
 renderer.py — camera, depth-coloured drawing, theme toggle, HUD, UI buttons.
 """
 
-import math
 import time
 import pygame
-import numpy as np
 
 
 DARK_THEME = {
@@ -114,6 +112,7 @@ class Renderer:
         self.done_triangles    = []
         self.done_points       = []
         self.construction_history = []
+        self.pending_draw      = []
         self.anim_triangle    = None
         self.anim_bisectors   = None
         self.anim_perps       = None
@@ -177,18 +176,45 @@ class Renderer:
         else:
             pygame.draw.polygon(self.screen, c, pts, width)
 
-    def _draw_infinite_line(self, point, direction, color, width=1, alpha=255, length=2000):
-        p = np.array(point)
-        d = np.array(direction)
-        p1 = self.camera.w2s(p - d * length)
-        p2 = self.camera.w2s(p + d * length)
+    def _draw_triangle_edges(self, tri, progress, color, width=2, alpha=255):
+        pts = [self.camera.w2s(v) for v in tri]
+        pts = [(round(x), round(y)) for x, y in pts]
         c = (*color, alpha) if alpha < 255 else color
+        edges = [(0, 1), (1, 2), (2, 0)]
+        total = len(edges)
+        done = min(int(progress * total), total)
+        frac = (progress * total) - done
+        # Draw complete edges
+        tmp = None
         if alpha < 255:
             tmp = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
-            pygame.draw.line(tmp, c, p1, p2, width)
+        for i in range(done):
+            p1, p2 = pts[edges[i][0]], pts[edges[i][1]]
+            if tmp is not None:
+                pygame.draw.line(tmp, c, p1, p2, width)
+            else:
+                pygame.draw.line(self.screen, c, p1, p2, width)
+        # Draw partial edge
+        if done < total and frac > 0:
+            i = done
+            p1 = pts[edges[i][0]]
+            p2 = pts[edges[i][1]]
+            mid = (p1[0] + (p2[0] - p1[0]) * frac,
+                   p1[1] + (p2[1] - p1[1]) * frac)
+            if tmp is not None:
+                pygame.draw.line(tmp, c, p1, mid, width)
+            else:
+                pygame.draw.line(self.screen, c, p1, mid, width)
+        if tmp is not None:
             self.screen.blit(tmp, (0, 0))
-        else:
-            pygame.draw.line(self.screen, c, p1, p2, width)
+
+    def _draw_growing_line(self, point, direction, progress, color, width=3, max_length=500):
+        half = max_length * 0.5 * min(progress, 1.0)
+        start = self.camera.w2s((point[0] - direction[0] * half,
+                                 point[1] - direction[1] * half))
+        end   = self.camera.w2s((point[0] + direction[0] * half,
+                                 point[1] + direction[1] * half))
+        pygame.draw.line(self.screen, color, start, end, width)
 
     def _draw_dot(self, pt, color, r=5):
         s = self.camera.w2s(pt)
@@ -349,12 +375,12 @@ class Renderer:
         if not self._dev_static_drawn and self.dev_mode and self.construction_history:
             for ch in self.construction_history:
                 for v, d in ch["bis"]:
-                    p1 = cam.w2s(np.array(v) - np.array(d) * 500)
-                    p2 = cam.w2s(np.array(v) + np.array(d) * 500)
+                    p1 = cam.w2s((v[0] - d[0] * 500, v[1] - d[1] * 500))
+                    p2 = cam.w2s((v[0] + d[0] * 500, v[1] + d[1] * 500))
                     pygame.draw.line(self._static_surface, (*th["bisect_color"], 80), p1, p2, 1)
                 for v, d in ch["perps"]:
-                    p1 = cam.w2s(np.array(v) - np.array(d) * 500)
-                    p2 = cam.w2s(np.array(v) + np.array(d) * 500)
+                    p1 = cam.w2s((v[0] - d[0] * 500, v[1] - d[1] * 500))
+                    p2 = cam.w2s((v[0] + d[0] * 500, v[1] + d[1] * 500))
                     pygame.draw.line(self._static_surface, (*th["perp_color"], 80), p1, p2, 1)
                 for pt in ch["ints"]:
                     s = cam.w2s(pt)
@@ -363,17 +389,23 @@ class Renderer:
 
         if self._static_count < len(self.done_triangles):
             new_ones   = self.done_triangles[self._static_count:]
-            max_gen    = max(len(self.done_triangles), 1)
+            max_gen    = max(len(self.done_triangles) + len(self.pending_draw), 1)
             for tri, gen_num in new_ones:
                 frac = gen_num / max(int(max_gen - 1), 1) if max_gen > 1 else 0.5
                 alpha = max(80, round(200 - frac * 60))
-                fill_alpha = max(20, round(alpha * 0.25))
                 col = gen_color(th, gen_num / max_gen, base_alpha=alpha)
-                fill_col = gen_color(th, gen_num / max_gen, base_alpha=fill_alpha)
                 pts = [cam.w2s(v) for v in tri]
-                pygame.draw.polygon(self._static_surface, fill_col, pts, 0)
                 pygame.draw.polygon(self._static_surface, col, pts, 1)
             self._static_count = len(self.done_triangles)
+
+    def advance_pending(self, dt, speed_mul=1.0):
+        for pd in self.pending_draw:
+            pd[2] = min(pd[2] + dt * speed_mul, 1.0)
+        finished = [pd for pd in self.pending_draw if pd[2] >= 1.0]
+        for pd in finished:
+            self.done_triangles.append((pd[0], pd[1]))
+            self.pending_draw.remove(pd)
+            self._static_count = 0
 
     def toggle_dev_mode(self):
         self.dev_mode = not self.dev_mode
@@ -398,49 +430,55 @@ class Renderer:
         max_gen = max(len(self.done_triangles), 1)
         t = self.anim_t
 
-        # Phase 1: Current triangle (t: 0.00 – 0.15)
+        # Phase 1: Current triangle — draw edges one by one (t: 0.00 – 0.15)
         if self.anim_triangle is not None:
             alpha = self._phase_alpha(t, 0.00, 0.15)
             if alpha > 0:
-                col = gen_color(th, len(self.done_triangles) / max_gen, base_alpha=alpha)
-                self._draw_triangle(self.anim_triangle, col, width=2)
+                col = gen_color(th, len(self.done_triangles) / max_gen, base_alpha=200)
+                p = min(t / 0.15, 1.0) if t < 0.15 else 1.0
+                self._draw_triangle_edges(self.anim_triangle, p, col, width=2, alpha=alpha)
 
-        # Phase 2: Angle bisectors appear one by one (t: 0.15 – 0.40)
+        # Phase 2: Angle bisectors — drawn one by one, persist until completion (t: 0.15 – 0.55)
         if self.anim_bisectors is not None:
             tri = self.anim_triangle
             for i, (v, d) in enumerate(zip(tri, self.anim_bisectors)):
-                s = 0.15 + 0.08 * i
-                e = s + 0.10
-                alpha = self._phase_alpha(t, s, e)
-                if alpha > 0:
-                    self._draw_infinite_line(v, d, th["bisect_color"],
-                                             width=1, alpha=alpha, length=500)
+                start_t = 0.15 + 0.10 * i
+                draw_t  = 0.20
+                if t >= start_t:
+                    p = min((t - start_t) / draw_t, 1.0)
+                    self._draw_growing_line(v, d, p, th["bisect_color"], width=3, max_length=500)
 
-        # Phase 3: Perpendicular lines (t: 0.40 – 0.65)
+        # Phase 3: Perpendicular lines — drawn one by one, persist until completion (t: 0.55 – 0.85)
         if self.anim_perps is not None:
             tri = self.anim_triangle
             for i, (v, d) in enumerate(zip(tri, self.anim_perps)):
-                s = 0.40 + 0.08 * i
-                e = s + 0.10
-                alpha = self._phase_alpha(t, s, e)
-                if alpha > 0:
-                    self._draw_infinite_line(v, d, th["perp_color"],
-                                             width=1, alpha=alpha, length=500)
+                start_t = 0.55 + 0.10 * i
+                draw_t  = 0.15
+                if t >= start_t:
+                    p = min((t - start_t) / draw_t, 1.0)
+                    self._draw_growing_line(v, d, p, th["perp_color"], width=3, max_length=500)
 
-        # Phase 4: Intersection points (t: 0.65 – 0.80)
+        # Phase 4: Intersection points (t: 0.85 – 0.90)
         if self.anim_intersections is not None:
-            alpha = self._phase_alpha(t, 0.65, 0.80)
-            if alpha > 0:
+            p = min(max((t - 0.85) / 0.05, 0), 1.0)
+            if p > 0:
+                fade = round(255 * p)
                 for pt in self.anim_intersections:
-                    fade = min(255, alpha + 55)
-                    self._draw_dot(pt, (*th["point_color"], fade), r=5)
+                    self._draw_dot(pt, (*th["point_color"], min(255, fade + 55)), r=5)
 
-        # Phase 5: New triangle (t: 0.80 – 1.00)
+        # Phase 5: New triangle — draw edges one by one (t: 0.90 – 1.00)
         if self.anim_new_tri is not None:
-            alpha = self._phase_alpha(t, 0.80, 1.00)
-            if alpha > 0:
-                col = gen_color(th, (len(self.done_triangles) + 1) / max_gen, base_alpha=alpha)
-                self._draw_triangle(self.anim_new_tri, col, width=2)
+            p = min(max((t - 0.90) / 0.10, 0), 1.0)
+            if p > 0:
+                col = gen_color(th, (len(self.done_triangles) + 1) / max_gen, base_alpha=200)
+                self._draw_triangle_edges(self.anim_new_tri, p, col, width=2, alpha=round(255 * p))
+
+        # Pending triangles: drawn edge-by-edge before graduating to static surface
+        for tri, gen_num, prog in self.pending_draw:
+            if prog > 0:
+                frac = gen_num / max(max_gen, 1)
+                col = gen_color(th, frac, base_alpha=200)
+                self._draw_triangle_edges(tri, prog, col, width=2, alpha=round(200 * prog))
 
         # Dev mode: persistent per-generation lines (drawn in foreground if not yet on static)
         if self.dev_mode:
@@ -449,12 +487,12 @@ class Renderer:
                 for i in range(self._static_count, drawn):
                     ch = self.construction_history[i]
                     for v, d in ch["bis"]:
-                        p1 = cam.w2s(np.array(v) - np.array(d) * 500)
-                        p2 = cam.w2s(np.array(v) + np.array(d) * 500)
+                        p1 = cam.w2s((v[0] - d[0] * 500, v[1] - d[1] * 500))
+                        p2 = cam.w2s((v[0] + d[0] * 500, v[1] + d[1] * 500))
                         pygame.draw.line(self.screen, (*th["bisect_color"], 100), p1, p2, 1)
                     for v, d in ch["perps"]:
-                        p1 = cam.w2s(np.array(v) - np.array(d) * 500)
-                        p2 = cam.w2s(np.array(v) + np.array(d) * 500)
+                        p1 = cam.w2s((v[0] - d[0] * 500, v[1] - d[1] * 500))
+                        p2 = cam.w2s((v[0] + d[0] * 500, v[1] + d[1] * 500))
                         pygame.draw.line(self.screen, (*th["perp_color"], 100), p1, p2, 1)
 
         for pt in self.done_points:

@@ -4,9 +4,8 @@ construction.py — triangle generation using repeated angle-bisector constructi
 
 import time
 import pygame
-import numpy as np
 
-from geometry import equilateral_triangle, triangle_extent
+from geometry import equilateral_triangle, triangle_extent, distance
 from renderer import Renderer, Camera
 from animation import AnimState, animate_generation, pump, RestartSignal
 from config import Config
@@ -19,7 +18,7 @@ _PAUSE = 0.2
 
 
 def run(cfg: Config, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
-    center  = np.array([WIDTH / 2, HEIGHT / 2])
+    center  = (WIDTH / 2, HEIGHT / 2)
     camera  = Camera(WIDTH, HEIGHT, center)
     renderer = Renderer(screen, camera, cfg)
     renderer.animation_done = False
@@ -40,9 +39,10 @@ def run(cfg: Config, screen: pygame.Surface, clock: pygame.time.Clock) -> None:
 def _build(state, renderer, center, cfg):
     side = cfg.side_length
 
-    renderer.redraw()
-
     tri0 = equilateral_triangle(center, side)
+    init_extent = max(distance(center, v) for v in tri0)
+    renderer.camera.fit_radius(init_extent * 1.1, 0.88)
+    renderer.redraw()
 
     cur_tri = tri0
 
@@ -55,14 +55,32 @@ def _build(state, renderer, center, cfg):
         _pause(state, _PAUSE)
         pump(state)
 
+    renderer.pending_draw.append([cur_tri, cfg.generations, 0.0])
+    all_tris = renderer.done_triangles + [(cur_tri, cfg.generations)]
+    extent = triangle_extent(all_tris, center)
+    if extent > 0:
+        renderer.camera.fit_radius(extent * 1.1, 0.88)
+    prev_ts = time.time()
+    while renderer.pending_draw:
+        now = time.time()
+        dt = now - prev_ts
+        prev_ts = now
+        renderer.advance_pending(dt, state.speed_mul)
+        renderer.redraw()
+        if pump(state):
+            raise _RestartSignal()
+        state.clock.tick(60)
+
 
 def _pause(state, seconds):
     elapsed = 0.0
     prev_ts = time.time()
     while elapsed < seconds:
         now = time.time()
+        dt = now - prev_ts
         if not state.renderer.paused:
-            elapsed += now - prev_ts
+            elapsed += dt
+            state.renderer.advance_pending(dt, state.speed_mul)
         prev_ts = now
         state.renderer.redraw()
         if pump(state):
@@ -73,7 +91,12 @@ def _pause(state, seconds):
 def _idle(state, renderer, clock):
     renderer.animation_done = True
     renderer.show_choices = True
+    prev_ts = time.time()
     while True:
+        now = time.time()
+        dt = now - prev_ts
+        prev_ts = now
+        renderer.advance_pending(dt, state.speed_mul)
         renderer.redraw()
         if pump(state):
             raise RestartSignal()
