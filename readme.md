@@ -55,6 +55,7 @@ python main.py --points 6
 ### Run additional demos
 
 - `python drawing_triangles/main.py` — triangle construction demo.
+- `python drawing_triangles/main.py --generations 20` — start with a fixed generation count.
 - `python single_circle/main.py` — simplified single-circle demo.
 
 ---
@@ -139,13 +140,13 @@ This folder contains a standalone variant of the same circle construction concep
 
 ## Dependencies
 
-- `pygame`
-- `numpy`
-- `matplotlib`
+- `pygame` — required for the main app and Python demos.
+- `numpy` — required by `drawing_triangles/` and the triangle export/demo scripts.
+- `matplotlib` — required by `little_scripts/simple_triangle.py`.
 
 Optional:
 
-- `cairosvg` — enable PDF export
+- `cairosvg` — enable PDF export for SVG/PDF export helpers.
 
 Install with:
 
