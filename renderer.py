@@ -11,36 +11,17 @@ import pygame
 # THEMES
 # ──────────────────────────────────────────────
 
-def _interp_stops(stops, t):
-    t = max(0.0, min(1.0, t))
-    for i in range(len(stops) - 1):
-        pos, col   = stops[i]
-        npos, ncol = stops[i + 1]
-        if pos <= t <= npos:
-            lt = (t - pos) / (npos - pos)
-            return tuple(round(col[j] + (ncol[j] - col[j]) * lt) for j in range(3))
-    return stops[-1][1]
-
-
 DARK_THEME = {
     "background":  (10, 10, 10),
     "toggle_bg":   (25, 25, 25),
     "toggle_fg":   (180, 180, 180),
     "hud_fg":      (130, 130, 130),
     "label":       "DARK",
-    "circle_stops": [
-        (0.0,  (255, 130,  40)),
-        (0.25, ( 70, 230,  90)),
-        (0.5,  ( 40, 190, 255)),
-        (0.75, (190,  70, 255)),
-        (1.0,  (255,  60, 190)),
-    ],
-    "point_stops": [
-        (0.0,  (255, 220,  60)),
-        (0.25, (140, 255, 110)),
-        (0.5,  ( 90, 230, 255)),
-        (0.75, (230, 120, 255)),
-        (1.0,  (255, 110, 210)),
+    "alt_colors": [
+        (180, 60, 220),   # purple
+        (255, 140, 40),   # orange
+        (40, 200, 220),   # cyan
+        (230, 80, 160),   # pink
     ],
 }
 
@@ -50,31 +31,25 @@ LIGHT_THEME = {
     "toggle_fg":   ( 50,  50,  50),
     "hud_fg":      (100, 100, 100),
     "label":       "LIGHT",
-    "circle_stops": [
-        (0.0,  (180,  85,  25)),
-        (0.25, ( 35, 145,  55)),
-        (0.5,  ( 25, 105, 165)),
-        (0.75, (105,  45, 165)),
-        (1.0,  (165,  35, 105)),
-    ],
-    "point_stops": [
-        (0.0,  (200, 150,  35)),
-        (0.25, ( 95, 185,  65)),
-        (0.5,  ( 55, 155, 195)),
-        (0.75, (145,  75, 185)),
-        (1.0,  (185,  65, 135)),
+    "alt_colors": [
+        (130, 40, 170),   # purple
+        (210, 110, 25),   # orange
+        (30, 150, 170),   # cyan
+        (180, 55, 120),   # pink
     ],
 }
 
 
 def depth_color(theme, depth_01, base_alpha=220):
-    r, g, b = _interp_stops(theme["circle_stops"], depth_01)
+    palette = theme["alt_colors"]
+    r, g, b = palette[int(depth_01 * len(palette)) % len(palette)]
     s = base_alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 
 
 def point_color(theme, depth_01, alpha=255):
-    r, g, b = _interp_stops(theme["point_stops"], depth_01)
+    palette = theme["alt_colors"]
+    r, g, b = palette[int(depth_01 * len(palette)) % len(palette)]
     s = alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 

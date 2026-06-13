@@ -9,25 +9,16 @@ import time
 import pygame
 
 
-def _interp_stops(stops, t):
-    t = max(0.0, min(1.0, t))
-    for i in range(len(stops) - 1):
-        pos, col = stops[i]
-        npos, ncol = stops[i + 1]
-        if pos <= t <= npos:
-            lt = (t - pos) / (npos - pos)
-            return tuple(round(col[j] + (ncol[j] - col[j]) * lt) for j in range(3))
-    return stops[-1][1]
-
-
 def _depth_color(theme, depth_01, base_alpha=220):
-    r, g, b = _interp_stops(theme["circle_stops"], depth_01)
+    palette = theme["alt_colors"]
+    r, g, b = palette[int(depth_01 * len(palette)) % len(palette)]
     s = base_alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 
 
 def _point_color(theme, depth_01, alpha=255):
-    r, g, b = _interp_stops(theme["point_stops"], depth_01)
+    palette = theme["alt_colors"]
+    r, g, b = palette[int(depth_01 * len(palette)) % len(palette)]
     s = alpha / 255
     return (round(r * s), round(g * s), round(b * s))
 
@@ -75,20 +66,21 @@ def _make_svg_string(circles, points, theme):
         f'  <rect x="{min_x:.2f}" y="{min_y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="{_to_hex(theme["background"])}"/>'
     ]
 
-    for (cx, cy), r, dep in circles:
-        r_col = _interp_stops(theme["circle_stops"], dep / max_depth)
-        hex_col = _to_hex(r_col)
+    palette = theme["alt_colors"]
+    for ((cx, cy), r, dep) in circles:
+        idx = int(dep / max_depth * len(palette)) % len(palette) if max_depth else 0
+        hex_col = _to_hex(palette[idx])
         opacity = 220 / 255
         lines.append(
             f'  <circle cx="{cx:.2f}" cy="{cy:.2f}" r="{r:.2f}" '
             f'fill="none" stroke="{hex_col}" stroke-width="{stroke_w:.2f}" stroke-opacity="{opacity:.3f}"/>'
         )
 
-    for x, y, alpha, dep in points:
+    for (x, y, alpha, dep) in points:
         if alpha <= 0:
             continue
-        r_col = _interp_stops(theme["point_stops"], dep / max_depth)
-        hex_col = _to_hex(r_col)
+        idx = int(dep / max_depth * len(palette)) % len(palette) if max_depth else 0
+        hex_col = _to_hex(palette[idx])
         opacity = alpha / 255
         lines.append(
             f'  <circle cx="{x:.2f}" cy="{y:.2f}" r="4" '

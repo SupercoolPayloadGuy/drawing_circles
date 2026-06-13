@@ -98,21 +98,23 @@ def _build(state, renderer, origin, cfg):
 
     # ── Level 2 ──────────────────────────────────────────────────────────────
 
+    lvl2_dep = 1.0 / (level - 1) if level > 2 else 1.0
+
     R1 = extent()
-    ac(A, R1, depth=1.0)
+    ac(A, R1, depth=lvl2_dep)
     wp(_STAGE)
 
     inner_mids  = [midpoint(A, pt) for pt in outer]
     projected1  = project_onto_ring(inner_mids, A, R1)
-    apf(projected1, depth=1.0, stagger=0.07)
+    apf(projected1, depth=lvl2_dep, stagger=0.07)
     wp(_STAGE)
 
     all_pts = [A] + projected1 + outer
-    dap(all_pts, depth=1.0)
+    dap(all_pts, depth=lvl2_dep)
     wp(_STAGE)
 
     R2 = extent()
-    ac(A, R2, depth=1.0)
+    ac(A, R2, depth=lvl2_dep)
     wp(_STAGE)
 
     if level == 2:
