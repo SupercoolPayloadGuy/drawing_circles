@@ -10,7 +10,8 @@ import pygame
 
 from geometry import angle_on_circle, farthest_extent, circle_from_points, all_pairs
 from renderer import RESTART_EVENT
-from export import _timestamp_path, export_svg, export_png
+from export import _timestamp_path, export_svg, export_png, export_pdf, \
+    export_highres_png, save_dialog
 
 
 # ──────────────────────────────────────────────
@@ -48,6 +49,7 @@ class AnimState:
         # Same list objects as renderer — mutations reflected immediately.
         self.done_circles  = renderer.done_circles
         self.done_points   = renderer.done_points
+        self.seen_circles  = set()
 
     @property
     def draw_duration(self):
@@ -91,32 +93,79 @@ def pump(state):
             elif not r.animation_done and r.pause_rect.collidepoint(event.pos):
                 r.paused = not r.paused
             elif r.animation_done and not r.show_choices:
+                restart_req = False
                 if r.restart_rect.collidepoint(event.pos):
-                    pygame.event.post(pygame.event.Event(RESTART_EVENT))
+                    restart_req = True
                 elif r.export_svg_rect and r.export_svg_rect.collidepoint(event.pos):
-                    path = _timestamp_path("svg")
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".svg", [("SVG files", ".svg"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("svg")
                     export_svg(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"SVG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.export_png_rect and r.export_png_rect.collidepoint(event.pos):
-                    path = _timestamp_path("png")
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("png")
                     export_png(r, path)
                     r.export_message = f"PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
+                elif r.export_pdf_rect and r.export_pdf_rect.collidepoint(event.pos):
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".pdf", [("PDF files", ".pdf"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("pdf")
+                    export_pdf(r.done_circles, r.done_points, r.theme, path)
+                    r.export_message = f"PDF saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                elif r.export_hd_rect and r.export_hd_rect.collidepoint(event.pos):
+                    fname = f"construction_hd_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("png")
+                    export_highres_png(r.done_circles, r.done_points, r.theme, path, scale=2)
+                    r.export_message = f"HD PNG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                if restart_req:
+                    pygame.event.post(pygame.event.Event(RESTART_EVENT))
             elif r.show_choices:
                 if r.choice_menu_rect and r.choice_menu_rect.collidepoint(event.pos):
                     pygame.event.post(pygame.event.Event(RESTART_EVENT))
                 elif r.choice_look_rect and r.choice_look_rect.collidepoint(event.pos):
                     r.show_choices = False
                 elif r.choice_svg_rect and r.choice_svg_rect.collidepoint(event.pos):
-                    path = _timestamp_path("svg")
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".svg", [("SVG files", ".svg"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("svg")
                     export_svg(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"SVG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.choice_png_rect and r.choice_png_rect.collidepoint(event.pos):
-                    path = _timestamp_path("png")
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("png")
                     export_png(r, path)
                     r.export_message = f"PNG saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                elif r.choice_pdf_rect and r.choice_pdf_rect.collidepoint(event.pos):
+                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".pdf", [("PDF files", ".pdf"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("pdf")
+                    export_pdf(r.done_circles, r.done_points, r.theme, path)
+                    r.export_message = f"PDF saved → {os.path.basename(path)}"
+                    r.export_msg_timer = time.time()
+                elif r.choice_hd_rect and r.choice_hd_rect.collidepoint(event.pos):
+                    fname = f"construction_hd_{time.strftime('%Y%m%d_%H%M%S')}"
+                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
+                    if not path:
+                        path = _timestamp_path("png")
+                    export_highres_png(r.done_circles, r.done_points, r.theme, path, scale=2)
+                    r.export_message = f"HD PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
 
         if event.type == pygame.MOUSEWHEEL:
@@ -143,6 +192,13 @@ def _auto_zoom(state, origin):
 # ──────────────────────────────────────────────
 
 def animate_circle(state, center, radius, depth=0.0, from_point=None, origin=None):
+    key = (round(center[0], 4), round(center[1], 4), round(radius, 4))
+    if key in state.seen_circles:
+        if origin is not None:
+            _auto_zoom(state, origin)
+        return
+    state.seen_circles.add(key)
+
     r = state.renderer
     r.anim_circle    = (center, radius, depth)
     r.anim_t         = 0.0

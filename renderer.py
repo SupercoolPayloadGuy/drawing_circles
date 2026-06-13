@@ -143,6 +143,8 @@ class Renderer:
         self.choice_look_rect = None
         self.choice_svg_rect  = None
         self.choice_png_rect  = None
+        self.choice_pdf_rect  = None
+        self.choice_hd_rect   = None
 
         self.export_message   = None
         self.export_msg_timer = 0.0
@@ -171,9 +173,15 @@ class Renderer:
         self._hover_choice_png   = False
         self._hover_export_svg   = False
         self._hover_export_png   = False
+        self._hover_export_pdf   = False
+        self._hover_export_hd    = False
+        self._hover_choice_pdf   = False
+        self._hover_choice_hd    = False
 
         self.export_svg_rect = None
         self.export_png_rect = None
+        self.export_pdf_rect = None
+        self.export_hd_rect  = None
 
     def toggle_theme(self):
         self.theme = LIGHT_THEME if self.theme is DARK_THEME else DARK_THEME
@@ -219,19 +227,21 @@ class Renderer:
             sw, sh = self.screen.get_size()
             pad, bh = self._PAD, self._BTN_H
 
-            rw = 180
             bw = 120
+            rw = 180
             gap = 12
-            total = bw + gap + rw + gap + bw
+            total = bw + gap + bw + gap + rw + gap + bw
             left = sw // 2 - total // 2
 
             self.export_svg_rect = pygame.Rect(left, sh - pad - bh, bw, bh)
-            self.restart_rect = pygame.Rect(left + bw + gap, sh - pad - bh, rw, bh)
-            self.export_png_rect = pygame.Rect(left + bw + gap + rw + gap, sh - pad - bh, bw, bh)
+            self.export_pdf_rect = pygame.Rect(left + bw + gap, sh - pad - bh, bw, bh)
+            self.restart_rect    = pygame.Rect(left + bw + gap + bw + gap, sh - pad - bh, rw, bh)
+            self.export_hd_rect  = pygame.Rect(left + bw + gap + bw + gap + rw + gap, sh - pad - bh, bw, bh)
 
-            self._btn(self.export_svg_rect, "DOWNLOAD SVG", self._hover_export_svg)
+            self._btn(self.export_svg_rect, "EXPORT SVG", self._hover_export_svg)
+            self._btn(self.export_pdf_rect, "EXPORT PDF", self._hover_export_pdf)
             self._btn(self.restart_rect, "↺  RESTART", self._hover_restart)
-            self._btn(self.export_png_rect, "DOWNLOAD PNG", self._hover_export_png)
+            self._btn(self.export_hd_rect, "EXPORT HD", self._hover_export_hd)
 
             if self.export_message:
                 elapsed = time.time() - self.export_msg_timer
@@ -266,12 +276,18 @@ class Renderer:
         self._btn(self.choice_menu_rect, "← MAIN MENU", self._hover_choice_menu)
         self._btn(self.choice_look_rect, "LOOK AROUND",  self._hover_choice_look)
 
+        total  = btn_w * 2 + gap
+
         row2_y = row1_y + btn_h + gap
         self.choice_svg_rect = pygame.Rect(cx - total // 2, row2_y, btn_w, btn_h)
-        self.choice_png_rect = pygame.Rect(cx - total // 2 + btn_w + gap, row2_y, btn_w, btn_h)
+        self.choice_pdf_rect = pygame.Rect(cx - total // 2 + btn_w + gap, row2_y, btn_w, btn_h)
 
-        self._btn(self.choice_svg_rect, "DOWNLOAD SVG", self._hover_choice_svg)
-        self._btn(self.choice_png_rect, "DOWNLOAD PNG", self._hover_choice_png)
+        self._btn(self.choice_svg_rect, "EXPORT SVG", self._hover_choice_svg)
+        self._btn(self.choice_pdf_rect, "EXPORT PDF", self._hover_choice_pdf)
+
+        row3_y = row2_y + btn_h + gap
+        self.choice_hd_rect = pygame.Rect(cx - total // 2, row3_y, total, btn_h)
+        self._btn(self.choice_hd_rect, "EXPORT HD PNG", self._hover_choice_hd)
 
         if self.export_message:
             elapsed = time.time() - self.export_msg_timer
@@ -279,7 +295,7 @@ class Renderer:
                 alpha = max(0, round(255 * (1.0 - elapsed / 2.0)))
                 msg = self.font.render(self.export_message, True, (140, 255, 140))
                 msg.set_alpha(alpha)
-                self.screen.blit(msg, (sw // 2 - msg.get_width() // 2, row2_y + btn_h + 20))
+                self.screen.blit(msg, (sw // 2 - msg.get_width() // 2, row3_y + btn_h + 20))
 
     def _draw_hud(self):
         fg    = self.theme["hud_fg"]
@@ -326,15 +342,27 @@ class Renderer:
                                            self.choice_svg_rect.collidepoint(mouse_pos))
             self._hover_choice_png  = bool(self.choice_png_rect and
                                            self.choice_png_rect.collidepoint(mouse_pos))
+            self._hover_choice_pdf  = bool(self.choice_pdf_rect and
+                                           self.choice_pdf_rect.collidepoint(mouse_pos))
+            self._hover_choice_hd   = bool(self.choice_hd_rect and
+                                           self.choice_hd_rect.collidepoint(mouse_pos))
             self._hover_export_svg  = False
             self._hover_export_png  = False
+            self._hover_export_pdf  = False
+            self._hover_export_hd   = False
         else:
             self._hover_choice_menu = self._hover_choice_look = False
             self._hover_choice_svg  = self._hover_choice_png  = False
+            self._hover_choice_pdf  = False
+            self._hover_choice_hd   = False
             self._hover_export_svg  = self.animation_done and bool(self.export_svg_rect and
                                             self.export_svg_rect.collidepoint(mouse_pos))
             self._hover_export_png  = self.animation_done and bool(self.export_png_rect and
                                             self.export_png_rect.collidepoint(mouse_pos))
+            self._hover_export_pdf  = self.animation_done and bool(self.export_pdf_rect and
+                                            self.export_pdf_rect.collidepoint(mouse_pos))
+            self._hover_export_hd   = self.animation_done and bool(self.export_hd_rect and
+                                            self.export_hd_rect.collidepoint(mouse_pos))
 
     # ── static background surface ─────────────
 

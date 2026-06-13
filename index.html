@@ -694,6 +694,7 @@ const state = {
   _DIGIT_TIMEOUT: 1200,
   _inSettings: false,
   lookMode: false,
+  _seenCircles: new Set(),
 };
 
 // ───────────────────────────────────────────────────────
@@ -951,6 +952,7 @@ function startConstruction() {
   state.animT = 0;
   state.lookMode = false;
   state.stepIdx = 0;
+  state._seenCircles = new Set();
   camera.panX = 0;
   camera.panY = 0;
   const r = farthestExtent(state.origin, [{ center: state.origin, radius: state.baseRadius }]);
@@ -1009,6 +1011,9 @@ function runStep() {
 
     case 'arc': {
       const { center, radius, depth, from, dur } = step;
+      const sig = `${center[0].toFixed(4)},${center[1].toFixed(4)},${radius.toFixed(4)}`;
+      if (state._seenCircles.has(sig)) { scheduleNext(0); break; }
+      state._seenCircles.add(sig);
       const startAngle = from != null ? angleOnCircle(center, from) : -HALF_PI;
       state.animCircle = { center, radius, depth, startAngle };
       state.animT = 0;
@@ -1261,6 +1266,7 @@ function resetUI() {
   state._extent = 0;
   state._projPts = [];
   state._allPts = [];
+  state._seenCircles = new Set();
   state._digitBuf = '';
   state._digitTs = 0;
   state._inSettings = false;
