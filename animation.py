@@ -11,7 +11,7 @@ import pygame
 from geometry import angle_on_circle, farthest_extent, circle_from_points, all_pairs
 from renderer import RESTART_EVENT
 from export import _timestamp_path, export_svg, export_png, export_pdf, \
-    export_highres_png, save_dialog
+    export_highres_png
 
 
 # ──────────────────────────────────────────────
@@ -97,34 +97,22 @@ def pump(state):
                 if r.restart_rect.collidepoint(event.pos):
                     restart_req = True
                 elif r.export_svg_rect and r.export_svg_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".svg", [("SVG files", ".svg"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("svg")
+                    path = _timestamp_path("svg")
                     export_svg(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"SVG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.export_png_rect and r.export_png_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("png")
+                    path = _timestamp_path("png")
                     export_png(r, path)
                     r.export_message = f"PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.export_pdf_rect and r.export_pdf_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".pdf", [("PDF files", ".pdf"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("pdf")
+                    path = _timestamp_path("pdf")
                     export_pdf(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"PDF saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.export_hd_rect and r.export_hd_rect.collidepoint(event.pos):
-                    fname = f"construction_hd_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("png")
+                    path = _timestamp_path("png")
                     export_highres_png(r.done_circles, r.done_points, r.theme, path, scale=2)
                     r.export_message = f"HD PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
@@ -136,34 +124,22 @@ def pump(state):
                 elif r.choice_look_rect and r.choice_look_rect.collidepoint(event.pos):
                     r.show_choices = False
                 elif r.choice_svg_rect and r.choice_svg_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".svg", [("SVG files", ".svg"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("svg")
+                    path = _timestamp_path("svg")
                     export_svg(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"SVG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.choice_png_rect and r.choice_png_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("png")
+                    path = _timestamp_path("png")
                     export_png(r, path)
                     r.export_message = f"PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.choice_pdf_rect and r.choice_pdf_rect.collidepoint(event.pos):
-                    fname = f"construction_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".pdf", [("PDF files", ".pdf"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("pdf")
+                    path = _timestamp_path("pdf")
                     export_pdf(r.done_circles, r.done_points, r.theme, path)
                     r.export_message = f"PDF saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()
                 elif r.choice_hd_rect and r.choice_hd_rect.collidepoint(event.pos):
-                    fname = f"construction_hd_{time.strftime('%Y%m%d_%H%M%S')}"
-                    path = save_dialog(fname + ".png", [("PNG files", ".png"), ("All files", ".*")])
-                    if not path:
-                        path = _timestamp_path("png")
+                    path = _timestamp_path("png")
                     export_highres_png(r.done_circles, r.done_points, r.theme, path, scale=2)
                     r.export_message = f"HD PNG saved → {os.path.basename(path)}"
                     r.export_msg_timer = time.time()

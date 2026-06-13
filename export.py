@@ -207,25 +207,6 @@ def export_highres_png(circles, points, theme, filepath, scale=2):
     pygame.image.save(surf, filepath)
 
 
-def save_dialog(default_name, filetypes):
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-        path = filedialog.asksaveasfilename(
-            initialdir=os.path.join(os.getcwd(), "map", "exports"),
-            initialfile=default_name,
-            defaultextension=filetypes[0][1],
-            filetypes=filetypes
-        )
-        root.destroy()
-        return path
-    except Exception:
-        return ""
-
-
 def _timestamp_path(ext):
     ts = time.strftime("%Y%m%d_%H%M%S")
     base = os.path.join(os.getcwd(), "map", "exports")
