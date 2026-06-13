@@ -16,3 +16,4 @@ class Config:
     show_total_generations: bool = False
     show_zoom: bool = True
     show_speed: bool = True
+    dev_mode: bool = False

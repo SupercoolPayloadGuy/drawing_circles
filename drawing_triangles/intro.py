@@ -125,6 +125,7 @@ class _SettingsPanel:
             dict(type='bool', label='show total generations', attr='show_total_generations'),
             dict(type='bool', label='show zoom',        attr='show_zoom'),
             dict(type='bool', label='show speed',       attr='show_speed'),
+            dict(type='bool', label='dev mode',          attr='dev_mode'),
         ]
 
     def handle_key(self, key):

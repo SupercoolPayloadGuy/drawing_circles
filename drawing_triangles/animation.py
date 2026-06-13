@@ -60,6 +60,8 @@ def pump(state):
             elif event.key == pygame.K_RIGHTBRACKET:
                 state.speed_mul = min(AnimState.SPEED_MAX,
                                       round(state.speed_mul + AnimState.SPEED_STEP, 10))
+            elif event.key == pygame.K_d:
+                r.toggle_dev_mode()
             elif event.key in (pygame.K_ESCAPE, pygame.K_m):
                 pygame.event.post(pygame.event.Event(RESTART_EVENT))
 
@@ -175,6 +177,12 @@ def animate_generation(state, current_triangle, gen_idx):
             break
 
     r.done_triangles.append((current_triangle, gen_idx))
+    r.construction_history.append({
+        "tri": current_triangle,
+        "bis": list(zip(current_triangle, bisectors)),
+        "perps": list(zip(current_triangle, perps)),
+        "ints": new_tri,
+    })
     r.anim_triangle = None
     r.anim_bisectors = None
     r.anim_perps = None
