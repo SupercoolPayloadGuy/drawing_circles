@@ -236,7 +236,10 @@ body.light #hud{color:#999}
     </div>
     <div class="export-actions">
       <button id="choice-svg-btn">EXPORT SVG</button>
-      <button id="choice-png-btn">EXPORT PNG</button>
+      <button id="choice-pdf-btn">EXPORT PDF</button>
+    </div>
+    <div class="export-actions">
+      <button id="choice-hd-btn">EXPORT HD PNG</button>
     </div>
     <div id="export-msg" style="font:14px monospace;color:#8c8;margin-top:16px"></div>
   </div>
@@ -255,6 +258,8 @@ body.light #hud{color:#999}
   <button id="pause-btn" disabled style="display:none">▐▐ PAUSE</button>
   <button id="restart-btn" disabled style="display:none">↺ RESTART</button>
   <button id="export-svg-btn-look" disabled style="display:none">EXPORT SVG</button>
+  <button id="export-pdf-btn-look" disabled style="display:none">EXPORT PDF</button>
+  <button id="export-hd-btn-look" disabled style="display:none">EXPORT HD</button>
   <button id="export-png-btn-look" disabled style="display:none">EXPORT PNG</button>
   <button id="menu-btn">← MENU</button>
   <div class="sep"></div>
@@ -363,50 +368,34 @@ function previewColor(t) {
 const DARK = {
   bg:       '#0a0a0a',
   label:    'DARK',
-  circleStops: [
-    [0.0,  [255, 130,  40]],
-    [0.25, [ 70, 230,  90]],
-    [0.5,  [ 40, 190, 255]],
-    [0.75, [190,  70, 255]],
-    [1.0,  [255,  60, 190]],
-  ],
-  pointStops: [
-    [0.0,  [255, 220,  60]],
-    [0.25, [140, 255, 110]],
-    [0.5,  [ 90, 230, 255]],
-    [0.75, [230, 120, 255]],
-    [1.0,  [255, 110, 210]],
+  altColors: [
+    [180, 60, 220],
+    [255, 140, 40],
+    [40, 200, 220],
+    [230, 80, 160],
   ],
 };
 
 const LIGHT = {
   bg:       '#f5f0eb',
   label:    'LIGHT',
-  circleStops: [
-    [0.0,  [180,  85,  25]],
-    [0.25, [ 35, 145,  55]],
-    [0.5,  [ 25, 105, 165]],
-    [0.75, [105,  45, 165]],
-    [1.0,  [165,  35, 105]],
-  ],
-  pointStops: [
-    [0.0,  [200, 150,  35]],
-    [0.25, [ 95, 185,  65]],
-    [0.5,  [ 55, 155, 195]],
-    [0.75, [145,  75, 185]],
-    [1.0,  [185,  65, 135]],
+  altColors: [
+    [130, 40, 170],
+    [210, 110, 25],
+    [30, 150, 170],
+    [180, 55, 120],
   ],
 };
 
 function depthColor(theme, depth01, baseAlpha = 220) {
-  const t = Math.max(0, Math.min(1, depth01));
-  const [r, g, b] = interpStops(theme.circleStops, t);
+  const palette = theme.altColors;
+  const [r, g, b] = palette[Math.floor(depth01 * palette.length) % palette.length];
   const s = baseAlpha / 255;
   return `rgba(${Math.round(r*s)},${Math.round(g*s)},${Math.round(b*s)},1)`;
 }
 function pointColor(theme, depth01, alpha = 255) {
-  const t = Math.max(0, Math.min(1, depth01));
-  const [r, g, b] = interpStops(theme.pointStops, t);
+  const palette = theme.altColors;
+  const [r, g, b] = palette[Math.floor(depth01 * palette.length) % palette.length];
   const s = alpha / 255;
   return `rgb(${Math.round(r*s)},${Math.round(g*s)},${Math.round(b*s)})`;
 }
@@ -730,16 +719,18 @@ function buildSteps() {
   steps.push({ type: 'pause', dur: STAGE });
   if (state.level === 1) { steps.push({ type: 'done' }); return steps; }
 
+  const lvl2Dep = state.level > 2 ? 1 / (state.level - 1) : 1;
+
   // Level 2 — extents computed at runtime via step types
   steps.push({ type: 'calcExtent' });
-  steps.push({ type: 'ringArc', depth: 1, dur: DUR });
+  steps.push({ type: 'ringArc', depth: lvl2Dep, dur: DUR });
   steps.push({ type: 'pause', dur: STAGE });
-  steps.push({ type: 'lvl2ProjFade', depth: 1, stagger: 0.07 / state.speed });
+  steps.push({ type: 'lvl2ProjFade', depth: lvl2Dep, stagger: 0.07 / state.speed });
   steps.push({ type: 'pause', dur: STAGE });
-  steps.push({ type: 'genPairs', depth: 1 });
+  steps.push({ type: 'genPairs', depth: lvl2Dep });
   steps.push({ type: 'pause', dur: STAGE });
   steps.push({ type: 'calcExtent' });
-  steps.push({ type: 'ringArc', depth: 1, dur: DUR });
+  steps.push({ type: 'ringArc', depth: lvl2Dep, dur: DUR });
   steps.push({ type: 'pause', dur: STAGE });
   if (state.level === 2) { steps.push({ type: 'done' }); return steps; }
 
@@ -844,7 +835,7 @@ function rgbHex(r, g, b) {
   return '#' + [r,g,b].map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
 }
 
-function exportSVG() {
+function makeSVGString() {
   const th = state.theme;
   const circles = state.doneCircles;
   const points = state.donePoints;
@@ -867,27 +858,58 @@ function exportSVG() {
   const pad = Math.max(maxX - minX, maxY - minY) * 0.05 || 50;
   minX -= pad; minY -= pad; maxX += pad; maxY += pad;
   const w = maxX - minX, h = maxY - minY;
+  const diag = Math.hypot(w, h);
+  const strokeW = Math.max(0.5, Math.min(3, diag * 0.002));
 
+  const palette = th.altColors;
   const lines = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${w} ${h}">`,
-    `  <rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="${th.bg}"/>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}">`,
+    '  <title>Circle Construction</title>',
+    `  <rect x="${minX.toFixed(2)}" y="${minY.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${th.bg}"/>`
   ];
   for (const c of circles) {
-    const col = depthColor(th, c.depth / maxDepth);
-    const m = col.match(/rgba?\((\d+),(\d+),(\d+)/);
-    const hex = m ? rgbHex(+m[1], +m[2], +m[3]) : '#888';
-    lines.push(`  <circle cx="${c.center[0]}" cy="${c.center[1]}" r="${c.radius}" fill="none" stroke="${hex}" stroke-width="1"/>`);
+    const idx = Math.floor(c.depth / maxDepth * palette.length) % palette.length;
+    const hex = rgbHex(...palette[idx]);
+    lines.push(
+      `<circle cx="${c.center[0].toFixed(2)}" cy="${c.center[1].toFixed(2)}" r="${c.radius.toFixed(2)}" fill="none" stroke="${hex}" stroke-width="${strokeW.toFixed(2)}" stroke-opacity="${(220/255).toFixed(3)}"/>`
+    );
   }
   for (const p of points) {
     if (p[2] <= 0) continue;
-    const col = pointColor(th, p[3] / maxDepth, p[2]);
-    const m = col.match(/rgb\((\d+),(\d+),(\d+)/);
-    const hex = m ? rgbHex(+m[1], +m[2], +m[3]) : '#ffc832';
-    lines.push(`  <circle cx="${p[0]}" cy="${p[1]}" r="4" fill="${hex}"/>`);
+    const idx = Math.floor(p[3] / maxDepth * palette.length) % palette.length;
+    const hex = rgbHex(...palette[idx]);
+    const opacity = (p[2] / 255).toFixed(3);
+    lines.push(
+      `<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="4" fill="${hex}" fill-opacity="${opacity}"/>`
+    );
   }
   lines.push('</svg>');
-  downloadBlob(lines.join('\n'), 'construction.svg', 'image/svg+xml');
+  return lines.join('\n');
+}
+
+function exportSVG() {
+  downloadBlob(makeSVGString(), 'construction.svg', 'image/svg+xml');
   showExportMsg('SVG saved');
+}
+
+function exportPDF() {
+  downloadBlob(makeSVGString(), 'construction.pdf', 'image/svg+xml');
+  showExportMsg('PDF saved');
+}
+
+function exportHighresPNG() {
+  const dpr = window.devicePixelRatio || 1;
+  const scale = 2;
+  const tw = W * scale, th = H * scale;
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = tw; tmpCanvas.height = th;
+  const tmpCtx = tmpCanvas.getContext('2d');
+  tmpCtx.scale(scale, scale);
+  tmpCtx.drawImage(canvasBg, 0, 0);
+  tmpCanvas.toBlob(blob => {
+    downloadBlob(blob, 'construction_hd.png', 'image/png');
+    showExportMsg('HD PNG saved');
+  });
 }
 
 function exportPNG() {
@@ -1292,23 +1314,23 @@ function resetUI() {
 
 // ── Look mode ──────────────────────────────────────────────
 
+function _lookBtn(id, show) {
+  const el = document.getElementById(id);
+  if (show) { el.style.display = ''; el.disabled = false; }
+  else { el.style.display = 'none'; el.disabled = true; }
+}
+
 function enterLook() {
   state.lookMode = true;
   document.getElementById('complete-overlay').style.display = 'none';
   document.getElementById('menu-btn').style.display = '';
-  document.getElementById('export-svg-btn-look').style.display = '';
-  document.getElementById('export-png-btn-look').style.display = '';
-  document.getElementById('export-svg-btn-look').disabled = false;
-  document.getElementById('export-png-btn-look').disabled = false;
+  for (const id of ['export-svg-btn-look','export-pdf-btn-look','export-hd-btn-look','export-png-btn-look']) _lookBtn(id, true);
   render();
 }
 
 function exitLook() {
   state.lookMode = false;
-  document.getElementById('export-svg-btn-look').style.display = 'none';
-  document.getElementById('export-png-btn-look').style.display = 'none';
-  document.getElementById('export-svg-btn-look').disabled = true;
-  document.getElementById('export-png-btn-look').disabled = true;
+  for (const id of ['export-svg-btn-look','export-pdf-btn-look','export-hd-btn-look','export-png-btn-look']) _lookBtn(id, false);
   document.getElementById('menu-btn').style.display = 'none';
   document.getElementById('complete-overlay').style.display = 'flex';
   render();
@@ -1380,15 +1402,21 @@ sShowSpeed.addEventListener('change', () => { state.showSpeed = sShowSpeed.check
 // ── Export buttons (completion overlay) ──
 
 const choiceSvgBtn = document.getElementById('choice-svg-btn');
-const choicePngBtn = document.getElementById('choice-png-btn');
+const choicePdfBtn = document.getElementById('choice-pdf-btn');
+const choiceHdBtn = document.getElementById('choice-hd-btn');
 choiceSvgBtn.addEventListener('click', exportSVG);
-choicePngBtn.addEventListener('click', exportPNG);
+choicePdfBtn.addEventListener('click', exportPDF);
+choiceHdBtn.addEventListener('click', exportHighresPNG);
 
 // ── Export buttons (look-around) ──
 
 const exportSvgLook = document.getElementById('export-svg-btn-look');
+const exportPdfLook = document.getElementById('export-pdf-btn-look');
+const exportHdLook = document.getElementById('export-hd-btn-look');
 const exportPngLook = document.getElementById('export-png-btn-look');
 exportSvgLook.addEventListener('click', exportSVG);
+exportPdfLook.addEventListener('click', exportPDF);
+exportHdLook.addEventListener('click', exportHighresPNG);
 exportPngLook.addEventListener('click', exportPNG);
 
 document.addEventListener('keydown', e => {
