@@ -1,13 +1,14 @@
 # Drawing Circles
 
-A small creative project for exploring recursive circle constructions with interactive visualization.
+A small creative project for exploring recursive circle and triangle constructions with interactive Python and browser visualization.
 
 The repository contains:
 
 - A desktop Python app powered by `pygame`.
 - A self-contained browser demo in `index.html`.
-- Export support for SVG and PNG output.
-- A separate `single_circle/` demo folder with its own app and browser version.
+- Export support for SVG and PNG output, plus optional PDF export.
+- A separate `single_circle/` demo folder with its own Python app and browser demo.
+- A `drawing_triangles/` demo folder featuring triangle construction and export.
 - A few small script experiments in `little_scripts/`.
 
 ---
@@ -17,8 +18,9 @@ The repository contains:
 - Interactive level and base-point selection.
 - Animated construction of circles from point pairs.
 - Built-in settings panel for radius, speed, HUD toggles, and theme.
-- Export completed constructions as SVG or PNG.
-- Browser demo with look-around pan/zoom and export buttons.
+- Export completed constructions as SVG and PNG.
+- Optional PDF export when `cairosvg` is installed.
+- Browser demo with pan/zoom controls.
 
 ---
 
@@ -38,7 +40,7 @@ Open `index.html` in a modern browser. No install is required.
 pip install -r requirements.txt
 ```
 
-4. Launch the application:
+4. Launch the main application:
 
 ```bash
 python main.py
@@ -49,6 +51,11 @@ python main.py
 ```bash
 python main.py --points 6
 ```
+
+### Run additional demos
+
+- `python drawing_triangles/main.py` — triangle construction demo.
+- `python single_circle/main.py` — simplified single-circle demo.
 
 ---
 
@@ -82,10 +89,11 @@ python main.py --points 6
 
 ## Export
 
-The Python app and browser demo can export completed constructions.
+The Python apps can export completed constructions.
 
 - Python export files are saved to `map/exports/`.
 - Supported formats: `SVG` and `PNG`.
+- Optional PDF export is available if `cairosvg` is installed.
 
 ---
 
@@ -102,16 +110,16 @@ The Python app and browser demo can export completed constructions.
 - `geometry.py` — pure geometry helpers
 - `renderer.py` — drawing, camera, and HUD
 - `animation.py` — easing, timers, and event handling
-- `export.py` — export helpers for SVG/PNG
+- `export.py` — export helpers for SVG/PNG/PDF
 - `index.html` — self-contained browser visualization
 - `requirements.txt` — Python dependency list
 
 ### Supporting folders
 
+- `drawing_triangles/` — triangle construction demo with its own app and export support
+- `single_circle/` — simplified circle demo with its own app and browser demo
 - `little_scripts/` — small experimental scripts for circle-related constructions
 - `map/exports/` — default export destination for generated images
-- `opencode/` — archived or published output content
-- `single_circle/` — separate simplified demo with its own app and browser version
 
 ---
 
@@ -132,18 +140,24 @@ This folder contains a standalone variant of the same circle construction concep
 ## Dependencies
 
 - `pygame`
+- `numpy`
+- `matplotlib`
+
+Optional:
+
+- `cairosvg` — enable PDF export
 
 Install with:
 
 ```bash
-pip install pygame
+pip install -r requirements.txt
 ```
 
 ---
 
 ## Notes
 
-- The app currently supports only `--points` as a CLI override.
+- The root app currently supports `-p` / `--points` as a CLI override.
 - Most runtime options are configured in `config.py`.
 - There is no test suite included in this repo.
 

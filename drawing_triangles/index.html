@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triangle Construction</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:monospace}
+body{display:flex;flex-direction:column;background:#08080c;color:#ccc;transition:background .25s}
+#canvas-wrap{flex:1;position:relative;overflow:hidden}
+#canvas-wrap canvas{display:block;width:100%;height:100%;position:absolute;top:0;left:0}
+#intro{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+#intro>*{pointer-events:auto}
+.intro-title{font-size:40px;font-weight:bold;color:#d7d7d7;letter-spacing:2px;margin-bottom:2px}
+.intro-sub{font-size:16px;color:#5f5f5f;margin-bottom:32px}
+.intro-level{font-size:76px;font-weight:bold;line-height:1}
+.intro-name{font-size:21px;margin-top:8px;margin-bottom:10px}
+.intro-type{font-size:14px;color:#5f5f5f;margin-bottom:18px}
+.intro-type .act{color:#ffc832}
+.intro-bar-wrap{width:260px;height:4px;background:#1e1e1e;border-radius:2px;overflow:hidden;margin-bottom:14px}
+.intro-bar-fill{height:100%;border-radius:2px;transition:width .15s}
+.intro-enter{font-size:14px;color:#5f5f5f;margin-bottom:22px}
+.intro-dots{display:flex;gap:14px;align-items:center}
+.intro-dot{width:7px;height:7px;border-radius:50%;background:#1e1e1e;transition:background .15s}
+.intro-dot.act{background:#ffc832}
+.intro-dots-extra{font-size:14px;color:rgb(80,200,255);margin-left:4px}
+#ui{display:flex;align-items:center;gap:16px;padding:10px 20px;background:#1a1a1a;border-top:1px solid #333;flex-wrap:wrap;user-select:none;transition:background .25s,border-color .25s}
+#ui label{font-size:13px;color:#888;transition:color .25s}
+#ui input[type=range]{width:80px;accent-color:#ffc832}
+#ui .val{font-size:13px;color:#ffc832;min-width:20px;text-align:center}
+#ui button{padding:6px 16px;font:13px monospace;background:#2a2a2a;color:#ccc;border:1px solid #555;border-radius:6px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+#ui button:hover{background:#3a3a3a;color:#ffc832;border-color:#ffc832}
+#ui button.prim{background:#ffc832;color:#111;border-color:#ffc832;font-weight:bold}
+#ui button.prim:hover{background:#ffd966}
+#ui .sep{width:1px;height:24px;background:#444;transition:background .25s}
+#zoom-display{font-size:13px;color:#888;min-width:70px;text-align:center}
+#zoom-display .hl{color:#ffc832}
+#theme-btn{position:absolute;top:12px;right:12px;padding:5px 14px;font:12px monospace;background:#191919;color:#b4b4b4;border:1px solid #444;border-radius:6px;cursor:pointer;z-index:10;transition:background .25s,color .25s,border-color .25s}
+#theme-btn:hover{color:#ffc832;border-color:#ffc832}
+#complete-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.72);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20;pointer-events:none}
+#complete-overlay>*{pointer-events:auto}
+.complete-title{font-size:22px;font-weight:bold;color:#ffc832;margin-bottom:28px;letter-spacing:2px}
+.complete-actions{display:flex;gap:18px}
+.complete-actions button{padding:10px 26px;font:15px monospace;font-weight:bold;background:#2a2a2a;color:#ccc;border:1px solid #666;border-radius:8px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.complete-actions button:hover{background:#3a3a3a;color:#ffc832;border-color:#ffc832}
+#choice-look-btn{background:#1a2a3a;border-color:#2a4a6a;color:#8cf}
+#choice-look-btn:hover{background:#2a4a5a;color:#aff;border-color:#4a8a9a}
+body.light{background:#f0f0f5;color:#555}
+body.light #ui{background:#e0e0e5;border-color:#ccc}
+body.light #ui label{color:#888}
+body.light #ui button{background:#d8d8dd;color:#444;border-color:#bbb}
+body.light #ui button:hover{background:#ccc;color:#333;border-color:#a80}
+body.light #ui button.prim{background:#c90;color:#fff;border-color:#c90}
+body.light #ui button.prim:hover{background:#da1}
+body.light #ui .sep{background:#ccc}
+body.light #zoom-display{color:#999}
+body.light #theme-btn{background:#d8d8dd;color:#555;border-color:#bbb}
+body.light #theme-btn:hover{color:#a80;border-color:#a80}
+body.light .intro-title{color:#333}
+body.light .intro-sub{color:#999}
+body.light .intro-type{color:#999}
+body.light .intro-enter{color:#999}
+body.light .intro-bar-wrap{background:#ddd}
+body.light .intro-dot{background:#ddd}
+#settings-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.72);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;pointer-events:none}
+#settings-overlay>*{pointer-events:auto}
+.settings-panel{background:#121212;border:1px solid #3c3c3c;border-radius:10px;padding:24px 32px;width:460px;max-width:92%}
+.settings-title{font-size:20px;font-weight:bold;color:#ffc832;text-align:center;margin-bottom:16px;letter-spacing:2px}
+.settings-row{display:flex;align-items:center;padding:8px 0;border-bottom:1px solid #222}
+.settings-row:last-child{border:none}
+.settings-label{font-size:14px;color:#d7d7d7;flex:1}
+.settings-control{display:flex;align-items:center;gap:10px}
+.settings-control input[type=range]{width:120px;accent-color:#ffc832}
+.settings-control .val{font-size:13px;color:#ffc832;min-width:50px;text-align:right}
+.settings-toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.settings-toggle input{opacity:0;width:0;height:0}
+.settings-toggle .slider{position:absolute;inset:0;background:#323232;border-radius:22px;transition:.2s}
+.settings-toggle .slider::before{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;background:#888;border-radius:50%;transition:.2s}
+.settings-toggle input:checked+.slider{background:#50dc78}
+.settings-toggle input:checked+.slider::before{background:#fff;transform:translateX(18px)}
+.settings-hint{font-size:12px;color:#464646;text-align:center;margin-top:14px}
+.export-actions{display:flex;gap:18px;margin-top:14px}
+.export-actions button{padding:10px 26px;font:15px monospace;font-weight:bold;background:#1a2a2a;color:#8cc;border:1px solid #2a6a6a;border-radius:8px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.export-actions button:hover{background:#2a4a4a;color:#aff;border-color:#4a9a9a}
+#hud{position:absolute;top:56px;left:14px;font:13px monospace;color:#828282;line-height:1.8;pointer-events:none;z-index:5}
+body.light #hud{color:#999}
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap">
+  <canvas id="b"></canvas>
+  <canvas id="c"></canvas>
+
+  <div id="intro">
+    <div class="intro-title">TRIANGLE CONSTRUCTION</div>
+    <div class="intro-sub">choose your depth</div>
+    <div class="intro-level" id="lvlNum">5</div>
+    <div class="intro-name" id="lvlName">deepening</div>
+    <div class="intro-type" id="typeLine">or type a number directly</div>
+    <div class="intro-bar-wrap"><div class="intro-bar-fill" id="barFill"></div></div>
+    <div class="intro-enter">[ENTER] to start</div>
+    <div class="intro-dots" id="dotsWrap"></div>
+  </div>
+
+  <button id="theme-btn">[B] DARK</button>
+  <div id="hud"></div>
+
+  <div id="settings-overlay">
+    <div class="settings-panel">
+      <div class="settings-title">⚙ SETTINGS</div>
+      <div class="settings-row">
+        <span class="settings-label">side length</span>
+        <div class="settings-control">
+          <input type="range" id="s-side-length" min="100" max="600" value="300" step="20">
+          <span class="val" id="s-side-length-val">300px</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">speed</span>
+        <div class="settings-control">
+          <input type="range" id="s-speed" min="0.25" max="8" value="1" step="0.25">
+          <span class="val" id="s-speed-val">1.00x</span>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show triangle count</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-triangles" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show generation</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-gen" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show total generations</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-total-gen">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show zoom</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-zoom" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">show speed</span>
+        <div class="settings-control">
+          <label class="settings-toggle">
+            <input type="checkbox" id="s-show-speed" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-hint">[TAB] or [ENTER] back &middot; arrows to adjust</div>
+    </div>
+  </div>
+
+  <div id="complete-overlay">
+    <div class="complete-title">CONSTRUCTION COMPLETE</div>
+    <div class="complete-actions">
+      <button id="choice-menu-btn">← MAIN MENU</button>
+      <button id="choice-look-btn">LOOK AROUND</button>
+    </div>
+    <div class="export-actions">
+      <button id="choice-svg-btn">EXPORT SVG</button>
+      <button id="choice-pdf-btn">EXPORT PDF</button>
+    </div>
+    <div class="export-actions">
+      <button id="choice-hd-btn">EXPORT HD PNG</button>
+    </div>
+    <div id="export-msg" style="font:14px monospace;color:#8c8;margin-top:16px"></div>
+  </div>
+</div>
+
+<div id="ui">
+  <label>GENERATIONS</label>
+  <input type="range" id="gen-slider" min="1" max="99" value="5">
+  <span class="val" id="gen-val">5</span>
+  <div class="sep"></div>
+  <button id="start-btn" class="prim">▶ START</button>
+  <button id="pause-btn" disabled style="display:none">▐▐ PAUSE</button>
+  <button id="restart-btn" disabled style="display:none">↺ RESTART</button>
+  <button id="export-svg-btn-look" disabled style="display:none">EXPORT SVG</button>
+  <button id="export-pdf-btn-look" disabled style="display:none">EXPORT PDF</button>
+  <button id="export-hd-btn-look" disabled style="display:none">EXPORT HD</button>
+  <button id="export-png-btn-look" disabled style="display:none">EXPORT PNG</button>
+  <button id="menu-btn">← MENU</button>
+  <div class="sep"></div>
+  <span id="zoom-display">zoom <span class="hl">100%</span></span>
+  <div class="sep"></div>
+  <button id="settings-btn">⚙ SETTINGS</button>
+  <span style="font:12px monospace;color:#555;margin-left:auto">scroll to zoom &middot; drag to pan</span>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// GEOMETRY
+// ────────────────────────────────────────────────────────────
+
+const TAU = 2 * Math.PI;
+
+function normalize(v) {
+  const len = Math.hypot(v[0], v[1]);
+  return len > 0 ? [v[0] / len, v[1] / len] : v;
+}
+
+function angleBisector(prevV, vertex, nextV) {
+  const u1 = normalize([prevV[0] - vertex[0], prevV[1] - vertex[1]]);
+  const u2 = normalize([nextV[0] - vertex[0], nextV[1] - vertex[1]]);
+  return normalize([u1[0] + u2[0], u1[1] + u2[1]]);
+}
+
+function perpDir(d) {
+  return [-d[1], d[0]];
+}
+
+function lineIntersection(p1, d1, p2, d2) {
+  const det = d1[0] * d2[1] - d1[1] * d2[0];
+  if (Math.abs(det) < 1e-12) return [p1[0], p1[1]];
+  const t = ((p2[0] - p1[0]) * d2[1] - (p2[1] - p1[1]) * d2[0]) / det;
+  return [p1[0] + t * d1[0], p1[1] + t * d1[1]];
+}
+
+function equilateralTriangle(cx, cy, side) {
+  const h = Math.sqrt(3) / 2 * side;
+  const r = 2 * h / 3;
+  return [
+    [cx, cy - r],
+    [cx - side / 2, cy + h - r],
+    [cx + side / 2, cy + h - r],
+  ];
+}
+
+function nextGeneration(tri) {
+  const [A, B, C] = tri;
+  const bA = angleBisector(B, A, C);
+  const bB = angleBisector(C, B, A);
+  const bC = angleBisector(A, C, B);
+  const pA = perpDir(bA);
+  const pB = perpDir(bB);
+  const pC = perpDir(bC);
+  const P = lineIntersection(A, pA, B, pB);
+  const Q = lineIntersection(B, pB, C, pC);
+  const R = lineIntersection(C, pC, A, pA);
+  return { tri: [P, Q, R], bis: [bA, bB, bC], perps: [pA, pB, pC] };
+}
+
+function triangleExtent(triangles) {
+  let best = 0;
+  for (const t of triangles)
+    for (const v of t)
+      for (const u of triangles)
+        for (const w of u)
+          best = Math.max(best, Math.hypot(v[0] - w[0], v[1] - w[1]));
+  return best;
+}
+
+function easeInOut(t) { return t * t * (3 - 2 * t); }
+
+function genDur(gen) { return Math.max(0.2, 0.80 / (1.0 + 0.35 * gen)); }
+
+// ────────────────────────────────────────────────────────────
+// THEMES & COLOUR
+// ────────────────────────────────────────────────────────────
+
+function interpStops(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [pos, col] = stops[i];
+    const [npos, ncol] = stops[i + 1];
+    if (t >= pos && t <= npos) {
+      const lt = (t - pos) / (npos - pos);
+      return [Math.round(col[0] + (ncol[0] - col[0]) * lt),
+              Math.round(col[1] + (ncol[1] - col[1]) * lt),
+              Math.round(col[2] + (ncol[2] - col[2]) * lt)];
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+const PREVIEW_STOPS = [
+  [0.0,  [255, 130,  40]],
+  [0.25, [ 70, 230,  90]],
+  [0.5,  [ 40, 190, 255]],
+  [0.75, [190,  70, 255]],
+  [1.0,  [255,  60, 190]],
+];
+
+function previewColor(t) { return interpStops(PREVIEW_STOPS, t); }
+
+const DARK_THEME = {
+  bg: '#08080c',
+  label: 'DARK',
+  bisect: 'rgba(120,200,255,1)',
+  perp: 'rgba(150,220,255,1)',
+  dot: 'rgba(200,235,255,1)',
+  baseR: 60, baseG: 160, baseB: 255,
+};
+
+const LIGHT_THEME = {
+  bg: '#f0f0f5',
+  label: 'LIGHT',
+  bisect: 'rgba(40,100,180,1)',
+  perp: 'rgba(70,120,200,1)',
+  dot: 'rgba(30,60,120,1)',
+  baseR: 30, baseG: 80, baseB: 200,
+};
+
+function triColor(theme, gen01, alpha) {
+  const s = alpha / 255;
+  return `rgba(${Math.round(Math.min(255, theme.baseR + 50 * gen01) * s)},${Math.round(Math.min(255, theme.baseG + 80 * gen01) * s)},${Math.round(Math.min(255, theme.baseB + 40 * gen01) * s)},${alpha / 255})`;
+}
+
+function triColorRgb(theme, gen01, alpha) {
+  const s = alpha / 255;
+  return [Math.round(Math.min(255, theme.baseR + 50 * gen01) * s),
+          Math.round(Math.min(255, theme.baseG + 80 * gen01) * s),
+          Math.round(Math.min(255, theme.baseB + 40 * gen01) * s)];
+}
+
+// ────────────────────────────────────────────────────────────
+// CANVAS SETUP
+// ────────────────────────────────────────────────────────────
+
+const canvasFg = document.getElementById('c');
+const ctxFg = canvasFg.getContext('2d');
+const canvasBg = document.getElementById('b');
+const ctxBg = canvasBg.getContext('2d');
+const wrap = document.getElementById('canvas-wrap');
+
+let W, H, cx, cy;
+let _staticCount = 0;
+
+function initCanvases() {
+  const rect = wrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  W = rect.width; H = rect.height;
+  for (const c of [canvasBg, canvasFg]) {
+    c.width = W * dpr; c.height = H * dpr;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+  }
+  ctxFg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2; cy = H / 2;
+}
+
+function redrawStatic() {
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.fillStyle = state.theme.bg;
+  ctxBg.fillRect(0, 0, W, H);
+  const maxGen = Math.max(state.doneTriangles.length, 1);
+  for (const item of state.doneTriangles) {
+    const [tri, gen] = item;
+    const frac = maxGen > 1 ? gen / (maxGen - 1) : 0.5;
+    const alpha = Math.max(80, Math.round(200 - frac * 60));
+    const col = triColor(state.theme, gen / maxGen, alpha);
+    const pts = tri.map(v => camera.w2s(v));
+    ctxBg.beginPath();
+    ctxBg.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < 3; i++) ctxBg.lineTo(pts[i][0], pts[i][1]);
+    ctxBg.closePath();
+    ctxBg.strokeStyle = col;
+    ctxBg.stroke();
+  }
+  _staticCount = state.doneTriangles.length;
+}
+
+function resize() { initCanvases(); redrawStatic(); }
+window.addEventListener('resize', resize);
+
+// ────────────────────────────────────────────────────────────
+// CAMERA
+// ────────────────────────────────────────────────────────────
+
+const camera = {
+  origin: [0, 0], zoom: 1, panX: 0, panY: 0,
+  w2s(pt) { return [(pt[0] - this.origin[0]) * this.zoom + cx + this.panX, (pt[1] - this.origin[1]) * this.zoom + cy + this.panY]; },
+  r2s(r) { return r * this.zoom; },
+  fitRadius(wr, margin) {
+    if (margin === undefined) margin = 0.88;
+    this.zoom = Math.min(W, H) / 2 * margin / Math.max(wr, 0.001);
+  },
+  scroll(dy) { this.zoom *= (dy > 0 ? 1.15 : 1 / 1.15); },
+};
+
+// ────────────────────────────────────────────────────────────
+// BACKGROUND ANIMATION
+// ────────────────────────────────────────────────────────────
+
+const bg = {
+  t0: 0, frameId: null,
+  start() { this.t0 = performance.now(); this.frameId = requestAnimationFrame(t => this.tick(t)); },
+  stop() { if (this.frameId) { cancelAnimationFrame(this.frameId); this.frameId = null; } },
+  tick(now) { this.draw((now - this.t0) / 1000); this.frameId = requestAnimationFrame(t => this.tick(t)); },
+  draw(t) {
+    const th = state.theme;
+    ctxFg.fillStyle = th.bg;
+    ctxFg.fillRect(0, 0, W, H);
+    const breath = 1 + 0.05 * Math.sin(t * 0.7);
+    const baseR = 120;
+    const rings = Math.min(state.generations, 6);
+    for (let i = 0; i < rings; i++) {
+      const dep = i / Math.max(rings - 1, 1);
+      const col = previewColor(dep);
+      const alpha = Math.max(15, 110 - i * 16);
+      const rr = baseR * (1 + i * 0.45) * breath;
+      const [p1, p2, p3] = equilateralTriangle(cx, cy, rr * 2);
+      ctxFg.beginPath();
+      ctxFg.moveTo(p1[0], p1[1]);
+      ctxFg.lineTo(p2[0], p2[1]);
+      ctxFg.lineTo(p3[0], p3[1]);
+      ctxFg.closePath();
+      ctxFg.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha / 255})`;
+      ctxFg.stroke();
+    }
+    const phase = (t % 4.0) / 4.0;
+    const wCol = previewColor(phase);
+    const rr = baseR * (1 + phase * 2.5) * breath;
+    const [p1, p2, p3] = equilateralTriangle(cx, cy, rr * 2);
+    ctxFg.beginPath();
+    ctxFg.moveTo(p1[0], p1[1]);
+    ctxFg.lineTo(p2[0], p2[1]);
+    ctxFg.lineTo(p3[0], p3[1]);
+    ctxFg.closePath();
+    ctxFg.strokeStyle = `rgba(${wCol[0]},${wCol[1]},${wCol[2]},${(1 - phase) * 50 / 255})`;
+    ctxFg.stroke();
+    ctxFg.beginPath(); ctxFg.arc(cx, cy, 4, 0, TAU);
+    ctxFg.fillStyle = `rgba(255,220,50,${200 / 255})`;
+    ctxFg.fill();
+  },
+};
+
+// ────────────────────────────────────────────────────────────
+// INTRO OVERLAY
+// ────────────────────────────────────────────────────────────
+
+const GEN_NAMES = {1: 'seed', 2: 'shallow', 3: 'deepening', 4: 'nested', 5: 'intricate', 6: 'woven', 7: 'dense', 8: 'recursive', 9: 'infinite', 10: 'beyond'};
+function genName(n) { return GEN_NAMES[n] || `depth ${n}`; }
+
+const lvlNumEl = document.getElementById('lvlNum');
+const lvlNameEl = document.getElementById('lvlName');
+const typeLine = document.getElementById('typeLine');
+const barFill = document.getElementById('barFill');
+const dotsWrap = document.getElementById('dotsWrap');
+
+function updateIntro() {
+  if (state._digitBuf && performance.now() - state._digitTs > state._DIGIT_TIMEOUT) state._digitBuf = '';
+  const lvl = state.generations;
+  const depT = Math.min(1, (lvl - 1) / 8);
+  const col = previewColor(depT);
+  lvlNumEl.textContent = lvl;
+  lvlNumEl.style.color = `rgb(${col[0]},${col[1]},${col[2]})`;
+  lvlNameEl.textContent = genName(lvl);
+  const nameCol = interpStops([...PREVIEW_STOPS], depT);
+  lvlNameEl.style.color = `rgb(${nameCol[0]},${nameCol[1]},${nameCol[2]})`;
+  typeLine.innerHTML = state._digitBuf ? `<span class="act">typing: ${state._digitBuf}_</span>` : 'or type a number directly';
+  const pct = Math.min(100, ((lvl - 1) / 8) * 100);
+  barFill.style.width = pct + '%';
+  barFill.style.background = `rgb(${col[0]},${col[1]},${col[2]})`;
+  const MAX_DOTS = 9, shown = Math.min(lvl, MAX_DOTS);
+  dotsWrap.innerHTML = '';
+  for (let i = 0; i < MAX_DOTS; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'intro-dot' + (i < shown ? ' act' : '');
+    if (i < shown) { const dc = previewColor(i / (MAX_DOTS - 1)); dot.style.background = `rgb(${dc[0]},${dc[1]},${dc[2]})`; }
+    dotsWrap.appendChild(dot);
+  }
+  if (lvl > MAX_DOTS) {
+    const extra = document.createElement('span');
+    extra.className = 'intro-dots-extra'; extra.textContent = `+${lvl - MAX_DOTS}`;
+    dotsWrap.appendChild(extra);
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────────────
+
+const state = {
+  running: false, paused: false, done: false,
+  theme: DARK_THEME,
+  generations: 5, sideLength: 300, speed: 1.0,
+  showTriangleCount: true, showGeneration: true, showTotalGenerations: false,
+  showZoom: true, showSpeed: true,
+  doneTriangles: [], donePoints: [],
+  animTri: null, animBis: null, animPerps: null, animNewTri: null, animInts: null,
+  animT: 0,
+  panning: false, panStart: null,
+  _digitBuf: '', _digitTs: 0, _DIGIT_TIMEOUT: 1200, _inSettings: false,
+  lookMode: false,
+};
+
+// ────────────────────────────────────────────────────────────
+// DRAWING
+// ────────────────────────────────────────────────────────────
+
+function phaseAlpha(t, start, end) {
+  if (t < start) return 0;
+  if (t >= end) return 200;
+  const raw = (t - start) / (end - start);
+  return Math.round(easeInOut(raw) * 200);
+}
+
+function drawTriangleCtx(ctx, tri, color, width) {
+  const pts = tri.map(v => camera.w2s(v));
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < 3; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width || 1;
+  ctx.stroke();
+}
+
+function drawInfiniteLine(ctx, point, dir, color, width, len) {
+  len = len || 2000;
+  const p1 = camera.w2s([point[0] - dir[0] * len, point[1] - dir[1] * len]);
+  const p2 = camera.w2s([point[0] + dir[0] * len, point[1] + dir[1] * len]);
+  ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]);
+  ctx.strokeStyle = color; ctx.lineWidth = width || 1;
+  ctx.stroke();
+}
+
+function drawDot(ctx, pt, color, r) {
+  const s = camera.w2s(pt);
+  ctx.beginPath(); ctx.arc(s[0], s[1], r || 5, 0, TAU);
+  ctx.fillStyle = color; ctx.fill();
+}
+
+function render() {
+  const th = state.theme;
+  const maxGen = Math.max(state.doneTriangles.length, 1);
+  const t = state.animT;
+
+  // Static layer
+  if (_staticCount < state.doneTriangles.length) {
+    const newItems = state.doneTriangles.slice(_staticCount);
+    for (const [tri, gen] of newItems) {
+      const frac = maxGen > 1 ? gen / (maxGen - 1) : 0.5;
+      const alpha = Math.max(80, Math.round(200 - frac * 60));
+      const col = triColor(th, gen / maxGen, alpha);
+      drawTriangleCtx(ctxBg, tri, col, 1);
+    }
+    _staticCount = state.doneTriangles.length;
+  }
+
+  ctxFg.clearRect(0, 0, W, H);
+
+  // Phase 1: Current triangle (0.00–0.15)
+  if (state.animTri && t > 0) {
+    const a = phaseAlpha(t, 0, 0.15);
+    if (a > 0) drawTriangleCtx(ctxFg, state.animTri, triColor(th, state.doneTriangles.length / maxGen, a), 2);
+  }
+
+  // Phase 2: Bisectors (0.15–0.40)
+  if (state.animBis) {
+    for (let i = 0; i < 3; i++) {
+      const s = 0.15 + 0.08 * i, e = s + 0.10;
+      const a = phaseAlpha(t, s, e);
+      if (a > 0) drawInfiniteLine(ctxFg, state.animTri[i], state.animBis[i], `rgba(120,200,255,${a / 255})`, 1, 500);
+    }
+  }
+
+  // Phase 3: Perpendiculars (0.40–0.65)
+  if (state.animPerps) {
+    for (let i = 0; i < 3; i++) {
+      const s = 0.40 + 0.08 * i, e = s + 0.10;
+      const a = phaseAlpha(t, s, e);
+      if (a > 0) drawInfiniteLine(ctxFg, state.animTri[i], state.animPerps[i], `rgba(150,220,255,${a / 255})`, 1, 500);
+    }
+  }
+
+  // Phase 4: Intersection points (0.65–0.80)
+  if (state.animInts) {
+    const a = phaseAlpha(t, 0.65, 0.80);
+    if (a > 0) for (const pt of state.animInts) drawDot(ctxFg, pt, `rgba(200,235,255,${Math.min(255, a + 55) / 255})`, 5);
+  }
+
+  // Phase 5: New triangle (0.80–1.00)
+  if (state.animNewTri) {
+    const a = phaseAlpha(t, 0.80, 1.00);
+    if (a > 0) drawTriangleCtx(ctxFg, state.animNewTri, triColor(th, (state.doneTriangles.length + 1) / maxGen, a), 2);
+  }
+
+  for (const p of state.donePoints) drawDot(ctxFg, p, th.dot, 4);
+  updateHUD();
+  const zd = document.getElementById('zoom-display');
+  if (state.showZoom) { zd.innerHTML = `zoom <span class="hl">${(camera.zoom * 100).toFixed(0)}%</span>`; zd.style.display = ''; }
+  else { zd.style.display = 'none'; }
+}
+
+// ────────────────────────────────────────────────────────────
+// HUD
+// ────────────────────────────────────────────────────────────
+
+function updateHUD() {
+  const lines = [];
+  if (state.showGeneration) {
+    let s = 'generation  ' + state.doneTriangles.length;
+    if (state.showTotalGenerations) s += ' / ' + state.generations;
+    lines.push(s);
+  } else if (state.showTotalGenerations) lines.push('/ ' + state.generations + ' generations');
+  if (state.showTriangleCount) lines.push('triangles  ' + (state.doneTriangles.length + (state.animNewTri ? 1 : 0)));
+  if (state.showSpeed) lines.push('speed  ' + state.speed.toFixed(2) + 'x  [[ ]]');
+  if (state.paused) lines.push('\u2014 PAUSED \u2014');
+  document.getElementById('hud').textContent = lines.join('\n');
+}
+
+// ────────────────────────────────────────────────────────────
+// EXPORT
+// ────────────────────────────────────────────────────────────
+
+function rgbHex(r, g, b) { return '#' + [r, g, b].map(c => Math.round(c).toString(16).padStart(2, '0')).join(''); }
+
+function makeSVGString() {
+  const th = state.theme;
+  const triData = state.doneTriangles;
+  const maxGen = Math.max(triData.length, 1);
+  let allX = [], allY = [];
+  for (const [tri] of triData) for (const v of tri) { allX.push(v[0]); allY.push(v[1]); }
+  for (const p of state.donePoints) { allX.push(p[0]); allY.push(p[1]); }
+  let minX, maxX, minY, maxY;
+  if (allX.length) { minX = Math.min(...allX); maxX = Math.max(...allX); minY = Math.min(...allY); maxY = Math.max(...allY); }
+  else { minX = minY = 0; maxX = maxY = 100; }
+  const pad = Math.max(maxX - minX, maxY - minY) * 0.05 || 50;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const w = maxX - minX, h = maxY - minY;
+  const strokeW = Math.max(0.5, Math.min(3, Math.hypot(w, h) * 0.002));
+  const lines = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX.toFixed(2)} ${minY.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)}">`,
+    '  <title>Triangle Construction</title>',
+    `  <rect x="${minX.toFixed(2)}" y="${minY.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" fill="${th.bg}"/>`,
+  ];
+  for (const [tri, gen] of triData) {
+    const frac = maxGen > 1 ? gen / (maxGen - 1) : 0.5;
+    const alpha = Math.max(80, Math.round(200 - frac * 60));
+    const rgb = triColorRgb(th, gen / maxGen, alpha);
+    const hex = rgbHex(rgb[0], rgb[1], rgb[2]);
+    const ptsStr = tri.map(v => `${v[0].toFixed(2)},${v[1].toFixed(2)}`).join(' ');
+    lines.push(`  <polygon points="${ptsStr}" fill="none" stroke="${hex}" stroke-width="${strokeW.toFixed(2)}" stroke-opacity="${(alpha / 255).toFixed(3)}"/>`);
+  }
+  lines.push('</svg>');
+  return lines.join('\n');
+}
+
+function downloadBlob(content, filename, mime) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function showExportMsg(msg) {
+  const el = document.getElementById('export-msg');
+  if (el) { el.textContent = msg + ' \u2713'; setTimeout(() => el.textContent = '', 2000); }
+}
+
+function exportSVG() { downloadBlob(makeSVGString(), 'triangle.svg', 'image/svg+xml'); showExportMsg('SVG saved'); }
+function exportPDF() { downloadBlob(makeSVGString(), 'triangle.pdf', 'image/svg+xml'); showExportMsg('PDF saved'); }
+
+function exportHighresPNG() {
+  const scale = 2;
+  const tw = W * scale, th = H * scale;
+  const tmp = document.createElement('canvas');
+  tmp.width = tw; tmp.height = th;
+  const tc = tmp.getContext('2d');
+  tc.scale(scale, scale);
+  const maxGen = Math.max(state.doneTriangles.length, 1);
+  tc.fillStyle = state.theme.bg; tc.fillRect(0, 0, W, H);
+  for (const [tri, gen] of state.doneTriangles) {
+    const frac = maxGen > 1 ? gen / (maxGen - 1) : 0.5;
+    const alpha = Math.max(80, Math.round(200 - frac * 60));
+    const col = triColor(state.theme, gen / maxGen, alpha);
+    drawTriangleCtx(tc, tri, col, 1);
+  }
+  for (const p of state.donePoints) drawDot(tc, p, state.theme.dot, 4);
+  tmp.toBlob(blob => { downloadBlob(blob, 'triangle_hd.png', 'image/png'); showExportMsg('HD PNG saved'); });
+}
+
+function exportPNG() {
+  const maxGen = Math.max(state.doneTriangles.length, 1);
+  const tmp = document.createElement('canvas');
+  tmp.width = W; tmp.height = H;
+  const tc = tmp.getContext('2d');
+  tc.fillStyle = state.theme.bg; tc.fillRect(0, 0, W, H);
+  for (const [tri, gen] of state.doneTriangles) {
+    const frac = maxGen > 1 ? gen / (maxGen - 1) : 0.5;
+    const alpha = Math.max(80, Math.round(200 - frac * 60));
+    const col = triColor(state.theme, gen / maxGen, alpha);
+    drawTriangleCtx(tc, tri, col, 1);
+  }
+  for (const p of state.donePoints) drawDot(tc, p, state.theme.dot, 4);
+  tmp.toBlob(blob => { downloadBlob(blob, 'triangle.png', 'image/png'); showExportMsg('PNG saved'); });
+}
+
+// ────────────────────────────────────────────────────────────
+// CONSTRUCTION STEP
+// ────────────────────────────────────────────────────────────
+
+let animFrameId = null;
+let stepTimer = null;
+
+function animateGeneration(curTri, gen) {
+  return new Promise(resolve => {
+    const { tri: newTri, bis, perps } = nextGeneration(curTri);
+    const dur = genDur(gen);
+    state.animTri = curTri;
+    state.animBis = bis;
+    state.animPerps = perps;
+    state.animNewTri = newTri;
+    state.animInts = newTri;
+    state.animT = 0;
+    const t0 = performance.now();
+
+    (function tick() {
+      if (!state.running) { cleanup(); resolve(curTri); return; }
+      if (state.paused) { animFrameId = requestAnimationFrame(tick); return; }
+      const raw = Math.min((performance.now() - t0) / 1000 / dur, 1);
+      state.animT = raw;
+      render();
+      if (raw < 1) { animFrameId = requestAnimationFrame(tick); }
+      else {
+        state.doneTriangles.push([curTri, gen]);
+        cleanup();
+        resolve(newTri);
+      }
+    })();
+
+    function cleanup() {
+      state.animTri = state.animBis = state.animPerps = state.animNewTri = state.animInts = null;
+      state.animT = 0;
+    }
+  });
+}
+
+function pauseAnim(sec) {
+  return new Promise(resolve => {
+    let elapsed = 0, last = performance.now();
+    (function tick() {
+      if (!state.running) { resolve(); return; }
+      const now = performance.now();
+      if (!state.paused) elapsed += (now - last);
+      last = now;
+      render();
+      if (elapsed >= sec * 1000) resolve();
+      else stepTimer = requestAnimationFrame(tick);
+    })();
+  });
+}
+
+async function runConstruction() {
+  state.running = true;
+  state.paused = false;
+  state.done = false;
+  state.doneTriangles = [];
+  state.donePoints = [];
+  _staticCount = 0;
+  camera.panX = 0; camera.panY = 0;
+  const center = [cx, cy];
+  camera.origin = center;
+  camera.fitRadius(state.sideLength * 1.2, 0.85);
+
+  redrawStatic();
+  bg.stop();
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('start-btn').textContent = '\u25A0 STOP';
+  document.getElementById('start-btn').classList.remove('prim');
+  document.getElementById('pause-btn').style.display = '';
+  document.getElementById('restart-btn').style.display = 'none';
+  document.getElementById('gen-slider').disabled = true;
+  menuBtn.style.display = '';
+  completeOverlay.style.display = 'none';
+
+  let curTri = equilateralTriangle(cx, cy, state.sideLength);
+
+  for (let gen = 0; gen < state.generations; gen++) {
+    if (!state.running) break;
+    curTri = await animateGeneration(curTri, gen);
+    if (!state.running) break;
+    const extent = triangleExtent(state.doneTriangles.map(x => x[0]));
+    if (extent > 0) camera.fitRadius(extent * 0.6, 0.88);
+    await pauseAnim(0.2);
+  }
+
+  if (state.running) complete();
+}
+
+function stopConstruction() {
+  state.running = false;
+  state.paused = false;
+  if (stepTimer) { cancelAnimationFrame(stepTimer); stepTimer = null; }
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+}
+
+function complete() {
+  state.done = true; state.running = false;
+  state.animTri = state.animBis = state.animPerps = state.animNewTri = state.animInts = null;
+  document.getElementById('start-btn').textContent = '\u21BA RESTART';
+  document.getElementById('start-btn').classList.add('prim');
+  document.getElementById('pause-btn').style.display = 'none';
+  document.getElementById('restart-btn').style.display = 'none';
+  document.getElementById('gen-slider').disabled = false;
+  menuBtn.style.display = 'none';
+  completeOverlay.style.display = 'flex';
+  render();
+}
+
+// ────────────────────────────────────────────────────────────
+// UI CONTROLS
+// ────────────────────────────────────────────────────────────
+
+const genSlider = document.getElementById('gen-slider');
+const genVal = document.getElementById('gen-val');
+const startBtn = document.getElementById('start-btn');
+const pauseBtn = document.getElementById('pause-btn');
+const restartBtn = document.getElementById('restart-btn');
+const themeBtn = document.getElementById('theme-btn');
+const menuBtn = document.getElementById('menu-btn');
+const choiceMenuBtn = document.getElementById('choice-menu-btn');
+const choiceLookBtn = document.getElementById('choice-look-btn');
+const completeOverlay = document.getElementById('complete-overlay');
+
+genSlider.addEventListener('input', () => {
+  state.generations = +genSlider.value;
+  genVal.textContent = state.generations;
+  updateIntro();
+});
+
+startBtn.addEventListener('click', () => {
+  if (state.running) { stopConstruction(); resetUI(); return; }
+  if (state.done) { resetUI(); return; }
+  runConstruction();
+});
+
+pauseBtn.addEventListener('click', () => {
+  state.paused = !state.paused;
+  pauseBtn.textContent = state.paused ? '\u25B6 PLAY' : '\u2590\u2590 PAUSE';
+});
+
+restartBtn.addEventListener('click', resetUI);
+menuBtn.addEventListener('click', () => { if (state.lookMode) exitLook(); else resetUI(); });
+choiceMenuBtn.addEventListener('click', resetUI);
+choiceLookBtn.addEventListener('click', enterLook);
+
+function resetUI() {
+  stopConstruction();
+  state.done = false;
+  _staticCount = 0;
+  const dpr = window.devicePixelRatio || 1;
+  ctxBg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctxBg.clearRect(0, 0, W, H);
+  state.doneTriangles = [];
+  state.donePoints = [];
+  document.getElementById('intro').style.display = '';
+  document.getElementById('start-btn').textContent = '\u25B6 START';
+  document.getElementById('start-btn').classList.add('prim');
+  document.getElementById('pause-btn').style.display = 'none';
+  document.getElementById('restart-btn').style.display = 'none';
+  document.getElementById('gen-slider').disabled = false;
+  menuBtn.style.display = 'none';
+  completeOverlay.style.display = 'none';
+  settingsOverlay.style.display = 'none';
+  bg.start();
+}
+
+function enterLook() {
+  state.lookMode = true;
+  completeOverlay.style.display = 'none';
+  menuBtn.style.display = '';
+  for (const id of ['export-svg-btn-look', 'export-pdf-btn-look', 'export-hd-btn-look', 'export-png-btn-look'])
+    document.getElementById(id).style.display = '';
+  render();
+}
+
+function exitLook() {
+  state.lookMode = false;
+  for (const id of ['export-svg-btn-look', 'export-pdf-btn-look', 'export-hd-btn-look', 'export-png-btn-look'])
+    document.getElementById(id).style.display = 'none';
+  menuBtn.style.display = 'none';
+  completeOverlay.style.display = 'flex';
+  render();
+}
+
+themeBtn.addEventListener('click', () => {
+  state.theme = state.theme === DARK_THEME ? LIGHT_THEME : DARK_THEME;
+  themeBtn.textContent = `[B] ${state.theme.label}`;
+  document.body.classList.toggle('light', state.theme === LIGHT_THEME);
+  redrawStatic();
+  render();
+});
+
+// ── Settings ──
+
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsBtn = document.getElementById('settings-btn');
+const sSideLength = document.getElementById('s-side-length');
+const sSideLengthVal = document.getElementById('s-side-length-val');
+const sSpeed = document.getElementById('s-speed');
+const sSpeedVal = document.getElementById('s-speed-val');
+const sShowTriangles = document.getElementById('s-show-triangles');
+const sShowGen = document.getElementById('s-show-gen');
+const sShowTotalGen = document.getElementById('s-show-total-gen');
+const sShowZoom = document.getElementById('s-show-zoom');
+const sShowSpeed = document.getElementById('s-show-speed');
+
+function openSettings() {
+  sSideLength.value = state.sideLength;
+  sSideLengthVal.textContent = state.sideLength + 'px';
+  sSpeed.value = state.speed;
+  sSpeedVal.textContent = state.speed.toFixed(2) + 'x';
+  sShowTriangles.checked = state.showTriangleCount;
+  sShowGen.checked = state.showGeneration;
+  sShowTotalGen.checked = state.showTotalGenerations;
+  sShowZoom.checked = state.showZoom;
+  sShowSpeed.checked = state.showSpeed;
+  state._inSettings = true;
+  settingsOverlay.style.display = 'flex';
+}
+
+function closeSettings() {
+  state._inSettings = false;
+  settingsOverlay.style.display = 'none';
+}
+
+settingsBtn.addEventListener('click', openSettings);
+settingsOverlay.addEventListener('click', e => { if (e.target === settingsOverlay) closeSettings(); });
+
+sSideLength.addEventListener('input', () => { state.sideLength = +sSideLength.value; sSideLengthVal.textContent = state.sideLength + 'px'; });
+sSpeed.addEventListener('input', () => { state.speed = +sSpeed.value; sSpeedVal.textContent = state.speed.toFixed(2) + 'x'; });
+sShowTriangles.addEventListener('change', () => { state.showTriangleCount = sShowTriangles.checked; render(); });
+sShowGen.addEventListener('change', () => { state.showGeneration = sShowGen.checked; render(); });
+sShowTotalGen.addEventListener('change', () => { state.showTotalGenerations = sShowTotalGen.checked; render(); });
+sShowZoom.addEventListener('change', () => { state.showZoom = sShowZoom.checked; render(); });
+sShowSpeed.addEventListener('change', () => { state.showSpeed = sShowSpeed.checked; render(); });
+
+// ── Export buttons (completion overlay) ──
+document.getElementById('choice-svg-btn').addEventListener('click', exportSVG);
+document.getElementById('choice-pdf-btn').addEventListener('click', exportPDF);
+document.getElementById('choice-hd-btn').addEventListener('click', exportHighresPNG);
+
+// ── Export buttons (look-around) ──
+document.getElementById('export-svg-btn-look').addEventListener('click', exportSVG);
+document.getElementById('export-pdf-btn-look').addEventListener('click', exportPDF);
+document.getElementById('export-hd-btn-look').addEventListener('click', exportHighresPNG);
+document.getElementById('export-png-btn-look').addEventListener('click', exportPNG);
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'b' || e.key === 'B') themeBtn.click();
+  if (e.key === 'p' || e.key === 'P') pauseBtn.click();
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (state._inSettings) closeSettings();
+    else if (!state.running && !state.done) openSettings();
+    return;
+  }
+  if (e.key === 'Escape' || e.key === 'm' || e.key === 'M') {
+    if (state._inSettings) { closeSettings(); return; }
+    if (state.running || state.done) menuBtn.click();
+  }
+  if (e.key === '[' && (state.running || state.done)) {
+    state.speed = Math.max(0.25, Math.round((state.speed - 0.25) * 100) / 100);
+    sSpeed.value = state.speed;
+    sSpeedVal.textContent = state.speed.toFixed(2) + 'x';
+    render();
+  }
+  if (e.key === ']' && (state.running || state.done)) {
+    state.speed = Math.min(8.0, Math.round((state.speed + 0.25) * 100) / 100);
+    sSpeed.value = state.speed;
+    sSpeedVal.textContent = state.speed.toFixed(2) + 'x';
+    render();
+  }
+  if (state._inSettings) {
+    const rows = ['s-side-length', 's-speed', 's-show-triangles', 's-show-gen', 's-show-total-gen', 's-show-zoom', 's-show-speed'];
+    let idx = rows.indexOf(document.activeElement?.id);
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      e.preventDefault();
+      idx = Math.min(rows.length - 1, (idx < 0 ? -1 : idx) + 1);
+      document.getElementById(rows[idx]).focus();
+    } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      e.preventDefault();
+      idx = Math.max(0, (idx < 0 ? 1 : idx) - 1);
+      document.getElementById(rows[idx]).focus();
+    } else if (e.key === 'Enter') { closeSettings(); }
+    return;
+  }
+  if (e.key === 'Enter' && !state.running) startBtn.click();
+  if (!state.running && !state.done) {
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      state.generations = Math.min(99, state.generations + 1);
+      genSlider.value = state.generations; genVal.textContent = state.generations; updateIntro();
+    }
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      state.generations = Math.max(1, state.generations - 1);
+      genSlider.value = state.generations; genVal.textContent = state.generations; updateIntro();
+    }
+    if (e.key >= '0' && e.key <= '9') {
+      const now = performance.now();
+      if (now - state._digitTs > state._DIGIT_TIMEOUT) state._digitBuf = '';
+      state._digitBuf += e.key; state._digitTs = now;
+      const val = parseInt(state._digitBuf);
+      if (val >= 1) { state.generations = Math.min(99, val); genSlider.value = state.generations; genVal.textContent = state.generations; updateIntro(); }
+    }
+    if (e.key === 'Backspace') {
+      if (state._digitBuf) {
+        state._digitBuf = state._digitBuf.slice(0, -1);
+        const val = state._digitBuf ? parseInt(state._digitBuf) : 1;
+        state.generations = Math.max(1, val);
+        genSlider.value = state.generations; genVal.textContent = state.generations; updateIntro();
+      }
+    }
+    if (['ArrowUp', 'ArrowDown', 'w', 'W', 's', 'S'].includes(e.key)) state._digitBuf = '';
+  }
+});
+
+// ── Zoom & Pan ──
+
+canvasFg.addEventListener('wheel', e => {
+  e.preventDefault();
+  camera.scroll(-Math.sign(e.deltaY));
+  redrawStatic();
+  render();
+}, { passive: false });
+
+canvasFg.addEventListener('mousedown', e => {
+  if (e.button === 0 && (state.running || state.done)) {
+    state.panning = true;
+    state.panStart = { x: e.clientX, y: e.clientY, px: camera.panX, py: camera.panY };
+    canvasFg.style.cursor = 'grabbing';
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (state.panning) {
+    camera.panX = state.panStart.px + e.clientX - state.panStart.x;
+    camera.panY = state.panStart.py + e.clientY - state.panStart.y;
+    redrawStatic();
+    render();
+  }
+});
+window.addEventListener('mouseup', () => { if (state.panning) { state.panning = false; canvasFg.style.cursor = ''; } });
+
+// ── INIT ──
+resize();
+updateIntro();
+bg.start();
+</script>
+</body>
+</html>

@@ -1,4 +1,6 @@
 pygame
+numpy
+matplotlib
 
-# Optional — for PDF export:
+# Optional: PDF export
 # cairosvg
